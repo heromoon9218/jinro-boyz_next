@@ -1,0 +1,233 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum VillageStatus {
+  NOT_STARTED
+  IN_PLAY
+  ENDED
+  RUINED
+}
+
+enum Winner {
+  HUMANS
+  WEREWOLVES
+}
+
+enum Role {
+  VILLAGER
+  WEREWOLF
+  FORTUNE_TELLER
+  PSYCHIC
+  BODYGUARD
+  MADMAN
+}
+
+enum PlayerStatus {
+  ALIVE
+  DEAD
+}
+
+enum RoomType {
+  MAIN
+  WOLF
+  DEAD
+}
+
+enum PostOwner {
+  PLAYER
+  SYSTEM
+}
+
+enum UserRole {
+  GENERAL
+  ADMIN
+}
+
+// ============================================================
+// Models
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  authId    String   @unique @map("auth_id") // Supabase Auth UUID
+  username  String   @unique
+  email     String   @unique
+  role      UserRole @default(GENERAL)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  profile  Profile?
+  villages Village[] // villages created by this user
+  players  Player[]
+
+  @@map("users")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  comment   String?  @db.Text
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Village {
+  id             String        @id @default(cuid())
+  name           String
+  playerNum      Int           @map("player_num")
+  discussionTime Int           @map("discussion_time") // seconds
+  day            Int           @default(0)
+  status         VillageStatus @default(NOT_STARTED)
+  winner         Winner?
+  accessPassword String?       @map("access_password")
+  showVoteTarget Boolean       @default(true) @map("show_vote_target")
+  startAt        DateTime?     @map("start_at")
+  nextUpdateTime DateTime?     @map("next_update_time")
+  userId         String        @map("user_id") // village creator
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  players Player[]
+  rooms   Room[]
+  records Record[]
+  results Result[]
+
+  @@map("villages")
+}
+
+model Player {
+  id        String       @id @default(cuid())
+  username  String
+  role      Role         @default(VILLAGER)
+  status    PlayerStatus @default(ALIVE)
+  userId    String       @map("user_id")
+  villageId String       @map("village_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  posts   Post[]
+
+  // Records where this player is the actor
+  records Record[]
+
+  // Records where this player is a target
+  voteTargetOf   Record[] @relation("VoteTarget")
+  attackTargetOf Record[] @relation("AttackTarget")
+  divineTargetOf Record[] @relation("DivineTarget")
+  guardTargetOf  Record[] @relation("GuardTarget")
+
+  // Results where this player is involved
+  votedIn    Result[] @relation("VotedPlayer")
+  attackedIn Result[] @relation("AttackedPlayer")
+  divinedIn  Result[] @relation("DivinedPlayer")
+  guardedIn  Result[] @relation("GuardedPlayer")
+
+  @@unique([userId, villageId])
+  @@map("players")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  type      RoomType
+  villageId String   @map("village_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  posts   Post[]
+
+  @@unique([villageId, type])
+  @@map("rooms")
+}
+
+model Post {
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  day       Int
+  owner     PostOwner @default(PLAYER)
+  playerId  String?   @map("player_id")
+  roomId    String    @map("room_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  player Player? @relation(fields: [playerId], references: [id])
+  room   Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, day])
+  @@map("posts")
+}
+
+model Record {
+  id             String   @id @default(cuid())
+  day            Int
+  playerId       String   @map("player_id")
+  villageId      String   @map("village_id")
+  voteTargetId   String?  @map("vote_target_id")
+  attackTargetId String?  @map("attack_target_id")
+  divineTargetId String?  @map("divine_target_id")
+  guardTargetId  String?  @map("guard_target_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  player       Player  @relation(fields: [playerId], references: [id])
+  village      Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  voteTarget   Player? @relation("VoteTarget", fields: [voteTargetId], references: [id])
+  attackTarget Player? @relation("AttackTarget", fields: [attackTargetId], references: [id])
+  divineTarget Player? @relation("DivineTarget", fields: [divineTargetId], references: [id])
+  guardTarget  Player? @relation("GuardTarget", fields: [guardTargetId], references: [id])
+
+  @@unique([playerId, villageId, day])
+  @@map("records")
+}
+
+model Result {
+  id               String   @id @default(cuid())
+  day              Int
+  villageId        String   @map("village_id")
+  votedPlayerId    String?  @map("voted_player_id")
+  attackedPlayerId String?  @map("attacked_player_id")
+  divinedPlayerId  String?  @map("divined_player_id")
+  guardedPlayerId  String?  @map("guarded_player_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  village        Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  votedPlayer    Player? @relation("VotedPlayer", fields: [votedPlayerId], references: [id])
+  attackedPlayer Player? @relation("AttackedPlayer", fields: [attackedPlayerId], references: [id])
+  divinedPlayer  Player? @relation("DivinedPlayer", fields: [divinedPlayerId], references: [id])
+  guardedPlayer  Player? @relation("GuardedPlayer", fields: [guardedPlayerId], references: [id])
+
+  @@unique([villageId, day])
+  @@map("results")
+}
+
+model BlacklistUser {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("blacklist_users")
+}
