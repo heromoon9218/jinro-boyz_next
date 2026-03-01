@@ -16,7 +16,7 @@ export const createVillageSchema = z.object({
     .min(1, "議論時間は最短1分です")
     .max(1440, "議論時間は最長1440分です"),
   accessPassword: z.string().optional(),
-  scheduledStartAt: z.date().optional(),
+  scheduledStartAt: z.date({ error: "開始予定を入力してください" }),
   showVoteTarget: z.boolean(),
 });
 

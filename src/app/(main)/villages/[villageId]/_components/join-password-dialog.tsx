@@ -43,7 +43,6 @@ export function JoinPasswordDialog({
             <Label htmlFor="join-password">合言葉</Label>
             <Input
               id="join-password"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="合言葉を入力"

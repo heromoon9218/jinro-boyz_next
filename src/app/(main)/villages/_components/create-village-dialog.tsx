@@ -146,7 +146,8 @@ export function CreateVillageDialog() {
                       placeholder="例: 3"
                       value={discussionTimeText}
                       onChange={(e) => {
-                        const v = e.target.value;
+                        const raw = e.target.value;
+                        const v = raw.normalize("NFKC");
                         setDiscussionTimeText(v);
                         const n = Number(v);
                         field.onChange(v === "" || Number.isNaN(n) ? 0 : n);
@@ -164,7 +165,7 @@ export function CreateVillageDialog() {
               name="scheduledStartAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>開始予定（任意）</FormLabel>
+                  <FormLabel>開始予定</FormLabel>
                   <FormControl>
                     <Input
                       type="datetime-local"
@@ -195,7 +196,6 @@ export function CreateVillageDialog() {
                   <FormLabel>合言葉（任意）</FormLabel>
                   <FormControl>
                     <Input
-                      type="password"
                       placeholder="設定しない場合は空欄"
                       {...field}
                     />
