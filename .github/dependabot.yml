@@ -44,6 +44,7 @@ updates:
           - "next"
           - "next-*"
           - "@next/*"
+          - "eslint-config-next"
           - "prisma"
           - "@prisma/*"
           - "@trpc/*"
@@ -52,6 +53,8 @@ updates:
           - "@tailwindcss/*"
           - "react"
           - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   - package-ecosystem: "github-actions"
     directory: "/"
