@@ -1,13 +1,19 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { db } from "@/server/db";
 import { z } from "zod";
 
 const updateEmailSchema = z.object({
   newEmail: z.string().email("有効なメールアドレスを入力してください"),
 });
 
+/**
+ * メールアドレス変更をリクエストする。
+ * Supabase Auth が確認メールを送信し、ユーザーがリンクをクリックして確認するまで
+ * 実際のメールアドレスは変わらない。
+ * public.users の email は auth.users の email 変更時に DB トリガーで同期されるため、
+ * ここでは Supabase へのリクエストのみ行う。
+ */
 export async function updateEmail(newEmail: string) {
   const parsed = updateEmailSchema.safeParse({ newEmail });
   if (!parsed.success) {
@@ -27,18 +33,6 @@ export async function updateEmail(newEmail: string) {
 
   if (error) {
     return { error: error.message };
-  }
-
-  try {
-    await db.user.update({
-      where: { authId: authUser.id },
-      data: { email: parsed.data.newEmail },
-    });
-  } catch (dbError) {
-    return {
-      error:
-        "メールアドレスの更新中にエラーが発生しました。しばらく経ってから再度お試しください。",
-    };
   }
 
   return {};

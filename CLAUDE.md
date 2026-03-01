@@ -3,6 +3,7 @@
 ## Conversation Guidelines
 
 - 常に日本語で会話する
+- コミットメッセージは日本語で記述する
 
 ## Project Overview
 
@@ -28,6 +29,9 @@ npx prisma generate
 # Prisma マイグレーション
 npx prisma migrate dev
 
+# メール変更トリガー（初回セットアップ時のみ）
+# Supabase Dashboard > SQL Editor で scripts/sync_user_email_on_auth_change.sql を実行
+
 # E2E テスト (Playwright)
 npm run test:e2e
 ```
@@ -37,6 +41,7 @@ npm run test:e2e
 `src/` 配下のファイル編集後:
 1. `npm run lint`
 2. `npm run build`
+3. `code-reviewer` サブエージェントでコードレビューを実行
 
 ## Architecture
 
