@@ -45,7 +45,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
   const isApiRoute = request.nextUrl.pathname.startsWith("/api");
-  const isPublicRoute = request.nextUrl.pathname === "/";
+  const isPublicRoute =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/villages");
 
   if (!user && !isAuthPage && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
