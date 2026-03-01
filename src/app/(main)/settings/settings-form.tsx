@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { updateEmail } from "./actions";
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/card";
 
 export function SettingsForm({ email }: { email: string }) {
-  const router = useRouter();
   const [newEmail, setNewEmail] = useState(email);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,8 +34,9 @@ export function SettingsForm({ email }: { email: string }) {
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("メールアドレスを更新しました");
-        router.refresh();
+        toast.success(
+          "確認メールを送信しました。新しいメールアドレスのリンクをクリックして変更を完了してください。",
+        );
       }
     } finally {
       setIsUpdatingEmail(false);
