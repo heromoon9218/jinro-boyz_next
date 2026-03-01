@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import type { Role } from "@prisma/client";
 import {
   createTRPCRouter,
@@ -141,6 +142,17 @@ export const villageRouter = createTRPCRouter({
       const { dbUser } = ctx;
 
       return ctx.db.$transaction(async (tx) => {
+        // 同時参加の競合を防ぐため、Village 行を FOR UPDATE でロック
+        const locked = await tx.$queryRaw<{ id: string }[]>(
+          Prisma.sql`SELECT id FROM villages WHERE id = ${input.villageId} FOR UPDATE`
+        );
+        if (locked.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
         const [village, existingPlayer, blacklisted] = await Promise.all([
           tx.village.findUnique({
             where: { id: input.villageId },

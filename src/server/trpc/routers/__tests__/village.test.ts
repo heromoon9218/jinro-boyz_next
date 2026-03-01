@@ -182,6 +182,219 @@ describe("village.byId", () => {
   });
 });
 
+describe("village.join", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("定員に達している村への参加は BAD_REQUEST で拒否される", async () => {
+    const caller = await createAuthenticatedCaller("db-user-3");
+
+    const mockQueryRaw = vi.fn().mockResolvedValue([{ id: "village-1" }]);
+    const mockVillageFindUnique = vi.fn().mockResolvedValue({
+      status: "NOT_STARTED",
+      playerNum: 2,
+      accessPassword: null,
+      _count: { players: 2 },
+    });
+    const mockPlayerFindUnique = vi.fn().mockResolvedValue(null);
+    const mockBlacklistFindUnique = vi.fn().mockResolvedValue(null);
+
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $queryRaw: mockQueryRaw,
+        village: { findUnique: mockVillageFindUnique },
+        player: { findUnique: mockPlayerFindUnique, create: vi.fn() },
+        blacklistUser: { findUnique: mockBlacklistFindUnique },
+      };
+      return fn(tx);
+    });
+
+    const err = await caller.village
+      .join({ villageId: "village-1" })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).toBe("定員に達しています");
+  });
+
+  test("村が存在しない場合は NOT_FOUND を返す（$queryRaw で 0 件）", async () => {
+    const caller = await createAuthenticatedCaller("db-user-3");
+
+    const mockQueryRaw = vi.fn().mockResolvedValue([]);
+
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $queryRaw: mockQueryRaw,
+        village: { findUnique: vi.fn() },
+        player: { findUnique: vi.fn(), create: vi.fn() },
+        blacklistUser: { findUnique: vi.fn() },
+      };
+      return fn(tx);
+    });
+
+    const err = await caller.village
+      .join({ villageId: "nonexistent" })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("NOT_FOUND");
+    expect((err as TRPCError).message).toBe("村が見つかりません");
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  test("正常に参加できるケースで $queryRaw（FOR UPDATE）が最初に呼ばれる", async () => {
+    mockFindUniqueUser.mockResolvedValue({
+      id: "db-user-3",
+      authId: "auth-user-3",
+      username: "player3",
+    });
+
+    const callOrder: string[] = [];
+    const mockQueryRaw = vi.fn().mockImplementation(async () => {
+      callOrder.push("queryRaw");
+      return [{ id: "village-1" }];
+    });
+    const mockVillageFindUniqueInTx = vi.fn().mockImplementation(async () => {
+      callOrder.push("villageFindUnique");
+      return {
+        status: "NOT_STARTED",
+        playerNum: 2,
+        accessPassword: null,
+        _count: { players: 1 },
+      };
+    });
+    const mockPlayerFindUnique = vi.fn().mockImplementation(async () => {
+      callOrder.push("playerFindUnique");
+      return null;
+    });
+    const mockBlacklistFindUnique = vi.fn().mockImplementation(async () => {
+      callOrder.push("blacklistFindUnique");
+      return null;
+    });
+    const mockPlayerCreate = vi.fn().mockResolvedValue({
+      id: "player-3",
+      username: "player3",
+      userId: "db-user-3",
+      villageId: "village-1",
+    });
+
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $queryRaw: mockQueryRaw,
+        village: { findUnique: mockVillageFindUniqueInTx },
+        player: { findUnique: mockPlayerFindUnique, create: mockPlayerCreate },
+        blacklistUser: { findUnique: mockBlacklistFindUnique },
+      };
+      return fn(tx);
+    });
+
+    const caller = createCaller({
+      db: {
+        user: { findUnique: mockFindUniqueUser },
+        village: { findUnique: mockVillageFindUnique },
+        $transaction: mockTransaction,
+      } as never,
+      supabase: {} as never,
+      user: { id: "auth-user-3" },
+      headers: new Headers(),
+    });
+
+    const result = await caller.village.join({ villageId: "village-1" });
+
+    expect(result.villageId).toBe("village-1");
+    expect(callOrder[0]).toBe("queryRaw");
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  test("既に参加している場合は BAD_REQUEST で拒否される", async () => {
+    mockFindUniqueUser.mockResolvedValue({
+      id: "db-user-1",
+      authId: "auth-user-1",
+      username: "player1",
+    });
+
+    const mockQueryRaw = vi.fn().mockResolvedValue([{ id: "village-1" }]);
+    const mockVillageFindUniqueInTx = vi.fn().mockResolvedValue({
+      status: "NOT_STARTED",
+      playerNum: 2,
+      accessPassword: null,
+      _count: { players: 1 },
+    });
+    const mockPlayerFindUnique = vi.fn().mockResolvedValue({
+      id: "player-1",
+      userId: "db-user-1",
+      villageId: "village-1",
+    });
+    const mockBlacklistFindUnique = vi.fn().mockResolvedValue(null);
+
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $queryRaw: mockQueryRaw,
+        village: { findUnique: mockVillageFindUniqueInTx },
+        player: { findUnique: mockPlayerFindUnique, create: vi.fn() },
+        blacklistUser: { findUnique: mockBlacklistFindUnique },
+      };
+      return fn(tx);
+    });
+
+    const caller = createCaller({
+      db: {
+        user: { findUnique: mockFindUniqueUser },
+        village: { findUnique: mockVillageFindUnique },
+        $transaction: mockTransaction,
+      } as never,
+      supabase: {} as never,
+      user: { id: "auth-user-1" },
+      headers: new Headers(),
+    });
+
+    const err = await caller.village
+      .join({ villageId: "village-1" })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).toBe("すでに参加しています");
+  });
+
+  test("ブラックリストに載っている場合は FORBIDDEN で拒否される", async () => {
+    const caller = await createAuthenticatedCaller("db-user-3");
+
+    const mockQueryRaw = vi.fn().mockResolvedValue([{ id: "village-1" }]);
+    const mockVillageFindUnique = vi.fn().mockResolvedValue({
+      status: "NOT_STARTED",
+      playerNum: 2,
+      accessPassword: null,
+      _count: { players: 1 },
+    });
+    const mockPlayerFindUnique = vi.fn().mockResolvedValue(null);
+    const mockBlacklistFindUnique = vi.fn().mockResolvedValue({
+      userId: "db-user-3",
+      villageId: "village-1",
+    });
+
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $queryRaw: mockQueryRaw,
+        village: { findUnique: mockVillageFindUnique },
+        player: { findUnique: mockPlayerFindUnique, create: vi.fn() },
+        blacklistUser: { findUnique: mockBlacklistFindUnique },
+      };
+      return fn(tx);
+    });
+
+    const err = await caller.village
+      .join({ villageId: "village-1" })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("FORBIDDEN");
+    expect((err as TRPCError).message).toBe("この村には参加できません");
+  });
+});
+
 describe("village.kick", () => {
   beforeEach(() => {
     vi.clearAllMocks();
