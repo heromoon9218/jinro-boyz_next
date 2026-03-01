@@ -7,16 +7,16 @@ test.describe("Login page", () => {
 
   test("displays login form with all fields", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "ログイン" })).toBeVisible();
-    await expect(page.getByLabel("メールアドレス")).toBeVisible();
-    await expect(page.getByLabel("パスワード")).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(
       page.getByRole("button", { name: "ログイン" })
     ).toBeVisible();
   });
 
   test("shows validation error for invalid email", async ({ page }) => {
-    await page.getByLabel("メールアドレス").fill("invalid-email");
-    await page.getByLabel("パスワード").fill("password123");
+    await page.locator('input[name="email"]').fill("invalid-email");
+    await page.locator('input[name="password"]').fill("password123");
     await page.getByRole("button", { name: "ログイン" }).click();
 
     await expect(
@@ -25,8 +25,8 @@ test.describe("Login page", () => {
   });
 
   test("shows validation error for short password", async ({ page }) => {
-    await page.getByLabel("メールアドレス").fill("test@example.com");
-    await page.getByLabel("パスワード").fill("short");
+    await page.locator('input[name="email"]').fill("test@example.com");
+    await page.locator('input[name="password"]').fill("short");
     await page.getByRole("button", { name: "ログイン" }).click();
 
     await expect(
@@ -49,20 +49,22 @@ test.describe("Signup page", () => {
     await expect(
       page.getByRole("heading", { name: "サインアップ" })
     ).toBeVisible();
-    await expect(page.getByLabel("ユーザー名")).toBeVisible();
-    await expect(page.getByLabel("メールアドレス")).toBeVisible();
-    await expect(page.getByLabel("パスワード", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("パスワード（確認）")).toBeVisible();
+    await expect(page.locator('input[name="username"]')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+    await expect(
+      page.locator('input[name="confirmPassword"]')
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "アカウントを作成" })
     ).toBeVisible();
   });
 
   test("shows validation error for short username", async ({ page }) => {
-    await page.getByLabel("ユーザー名").fill("a");
-    await page.getByLabel("メールアドレス").fill("test@example.com");
-    await page.getByLabel("パスワード", { exact: true }).fill("password123");
-    await page.getByLabel("パスワード（確認）").fill("password123");
+    await page.locator('input[name="username"]').fill("a");
+    await page.locator('input[name="email"]').fill("test@example.com");
+    await page.locator('input[name="password"]').fill("password123");
+    await page.locator('input[name="confirmPassword"]').fill("password123");
     await page.getByRole("button", { name: "アカウントを作成" }).click();
 
     await expect(
@@ -73,10 +75,10 @@ test.describe("Signup page", () => {
   test("shows validation error for invalid username characters", async ({
     page,
   }) => {
-    await page.getByLabel("ユーザー名").fill("user name!");
-    await page.getByLabel("メールアドレス").fill("test@example.com");
-    await page.getByLabel("パスワード", { exact: true }).fill("password123");
-    await page.getByLabel("パスワード（確認）").fill("password123");
+    await page.locator('input[name="username"]').fill("user name!");
+    await page.locator('input[name="email"]').fill("test@example.com");
+    await page.locator('input[name="password"]').fill("password123");
+    await page.locator('input[name="confirmPassword"]').fill("password123");
     await page.getByRole("button", { name: "アカウントを作成" }).click();
 
     await expect(
@@ -85,10 +87,10 @@ test.describe("Signup page", () => {
   });
 
   test("shows validation error for invalid email", async ({ page }) => {
-    await page.getByLabel("ユーザー名").fill("valid_user");
-    await page.getByLabel("メールアドレス").fill("not-an-email");
-    await page.getByLabel("パスワード", { exact: true }).fill("password123");
-    await page.getByLabel("パスワード（確認）").fill("password123");
+    await page.locator('input[name="username"]').fill("valid_user");
+    await page.locator('input[name="email"]').fill("not-an-email");
+    await page.locator('input[name="password"]').fill("password123");
+    await page.locator('input[name="confirmPassword"]').fill("password123");
     await page.getByRole("button", { name: "アカウントを作成" }).click();
 
     await expect(
@@ -97,10 +99,10 @@ test.describe("Signup page", () => {
   });
 
   test("shows validation error for short password", async ({ page }) => {
-    await page.getByLabel("ユーザー名").fill("valid_user");
-    await page.getByLabel("メールアドレス").fill("test@example.com");
-    await page.getByLabel("パスワード", { exact: true }).fill("short");
-    await page.getByLabel("パスワード（確認）").fill("short");
+    await page.locator('input[name="username"]').fill("valid_user");
+    await page.locator('input[name="email"]').fill("test@example.com");
+    await page.locator('input[name="password"]').fill("short");
+    await page.locator('input[name="confirmPassword"]').fill("short");
     await page.getByRole("button", { name: "アカウントを作成" }).click();
 
     await expect(
@@ -109,10 +111,10 @@ test.describe("Signup page", () => {
   });
 
   test("shows validation error for mismatched passwords", async ({ page }) => {
-    await page.getByLabel("ユーザー名").fill("valid_user");
-    await page.getByLabel("メールアドレス").fill("test@example.com");
-    await page.getByLabel("パスワード", { exact: true }).fill("password123");
-    await page.getByLabel("パスワード（確認）").fill("different456");
+    await page.locator('input[name="username"]').fill("valid_user");
+    await page.locator('input[name="email"]').fill("test@example.com");
+    await page.locator('input[name="password"]').fill("password123");
+    await page.locator('input[name="confirmPassword"]').fill("different456");
     await page.getByRole("button", { name: "アカウントを作成" }).click();
 
     await expect(page.getByText("パスワードが一致しません")).toBeVisible();
