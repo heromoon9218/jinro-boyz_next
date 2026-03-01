@@ -67,7 +67,9 @@ describe("signup", () => {
     vi.clearAllMocks();
     mockFindUnique.mockResolvedValue(null);
     mockSignUp.mockResolvedValue({
-      data: { user: { id: mockAuthUserId } },
+      data: {
+        user: { id: mockAuthUserId, identities: [{ provider: "email" }] },
+      },
       error: null,
     });
     mockCreate.mockResolvedValue({});
@@ -101,6 +103,24 @@ describe("signup", () => {
     const result = await signup(validFormData);
     expect(result).toEqual({ error: "Email already registered" });
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  test("既存メールで signUp 時（identities 空配列）はエラーを返し、deleteUser を呼ばない", async () => {
+    const existingAuthUserId = "existing-auth-user-456";
+    mockSignUp.mockResolvedValue({
+      data: {
+        user: { id: existingAuthUserId, identities: [] },
+      },
+      error: null,
+    });
+
+    const result = await signup(validFormData);
+
+    expect(result).toEqual({
+      error: "このメールアドレスは既に登録されています",
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 
   test("成功時は redirect が呼ばれる（Prisma 作成成功）", async () => {

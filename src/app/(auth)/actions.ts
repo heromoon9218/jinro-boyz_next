@@ -37,6 +37,12 @@ export async function signup(formData: {
     return { error: "アカウントの作成に失敗しました" };
   }
 
+  // 既存メールで signUp した場合、Supabase は error を返さず identities が空の user を返す。
+  // このまま進むと Prisma のユニーク制約で失敗し、ロールバックで既存ユーザーの Auth を削除してしまう脆弱性がある。
+  if (!data.user.identities?.length) {
+    return { error: "このメールアドレスは既に登録されています" };
+  }
+
   const authUserId = data.user.id;
 
   try {
