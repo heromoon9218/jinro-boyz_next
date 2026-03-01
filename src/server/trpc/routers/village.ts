@@ -200,12 +200,12 @@ export const villageRouter = createTRPCRouter({
           });
         }
 
-        // パスワードチェック
+        // 合言葉チェック
         if (village.accessPassword) {
           if (!input.accessPassword || input.accessPassword !== village.accessPassword) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "パスワードが一致しません",
+              message: "合言葉が一致しません",
             });
           }
         }
@@ -419,8 +419,11 @@ export const villageRouter = createTRPCRouter({
             where: { id: input.villageId },
             select: { status: true, userId: true },
           }),
-          tx.player.findUnique({
-            where: { id: input.playerId },
+          tx.player.findFirst({
+            where: {
+              id: input.playerId,
+              villageId: input.villageId,
+            },
             select: { id: true, userId: true },
           }),
         ]);
