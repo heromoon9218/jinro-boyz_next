@@ -35,9 +35,13 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 const PLAYER_NUM_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 5);
+const DEFAULT_DISCUSSION_TIME = 10;
 
 export function CreateVillageDialog() {
   const [open, setOpen] = useState(false);
+  const [discussionTimeText, setDiscussionTimeText] = useState(
+    String(DEFAULT_DISCUSSION_TIME),
+  );
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -47,7 +51,7 @@ export function CreateVillageDialog() {
     defaultValues: {
       name: "",
       playerNum: 5,
-      discussionTime: 3,
+      discussionTime: DEFAULT_DISCUSSION_TIME,
       accessPassword: "",
       showVoteTarget: true,
     },
@@ -60,6 +64,7 @@ export function CreateVillageDialog() {
         queryClient.invalidateQueries({ queryKey: [["village"]] });
         setOpen(false);
         form.reset();
+        setDiscussionTimeText(String(DEFAULT_DISCUSSION_TIME));
         router.push(`/villages/${data.id}`);
       },
       onError: (error) => {
@@ -134,14 +139,19 @@ export function CreateVillageDialog() {
               name="discussionTime"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>議論時間（分）</FormLabel>
+                  <FormLabel>議論時間（1〜1440分）</FormLabel>
                   <FormControl>
                     <Input
-                      type="number"
-                      min={1}
-                      max={1440}
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      inputMode="numeric"
+                      placeholder="例: 3"
+                      value={discussionTimeText}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDiscussionTimeText(v);
+                        const n = Number(v);
+                        field.onChange(v === "" || Number.isNaN(n) ? 0 : n);
+                      }}
+                      onBlur={field.onBlur}
                     />
                   </FormControl>
                   <FormMessage />
@@ -182,7 +192,7 @@ export function CreateVillageDialog() {
               name="accessPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>パスワード（任意）</FormLabel>
+                  <FormLabel>合言葉（任意）</FormLabel>
                   <FormControl>
                     <Input
                       type="password"

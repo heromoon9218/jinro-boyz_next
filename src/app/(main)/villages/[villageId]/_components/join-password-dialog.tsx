@@ -36,17 +36,17 @@ export function JoinPasswordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>パスワードを入力</DialogTitle>
+          <DialogTitle>合言葉を入力</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="join-password">パスワード</Label>
+            <Label htmlFor="join-password">合言葉</Label>
             <Input
               id="join-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="パスワードを入力"
+              placeholder="合言葉を入力"
               required
             />
           </div>

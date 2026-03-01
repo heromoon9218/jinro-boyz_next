@@ -52,7 +52,7 @@ export function VillageCard({ village }: VillageCardProps) {
             {village.hasPassword && (
               <span className="flex items-center gap-1">
                 <Lock className="size-3.5" />
-                パスワード
+                合言葉
               </span>
             )}
           </div>

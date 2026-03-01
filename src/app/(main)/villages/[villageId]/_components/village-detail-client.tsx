@@ -72,7 +72,7 @@ export function VillageDetailClient({ villageId }: VillageDetailClientProps) {
         )}
         {village.hasPassword && (
           <div>
-            <span className="text-muted-foreground">パスワード: </span>あり
+            <span className="text-muted-foreground">合言葉: </span>あり
           </div>
         )}
       </div>

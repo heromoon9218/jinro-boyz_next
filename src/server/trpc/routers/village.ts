@@ -89,12 +89,16 @@ export const villageRouter = createTRPCRouter({
       // authId を除外し、isOwner/isParticipant をサーバー側で解決
       const { user, players, accessPassword, ...villageData } = village;
 
+      // ゲーム進行中（IN_PLAY）は role を隠蔽。終了後（ENDED）のみ結果表示のため公開
+      const hideRole = village.status === "IN_PLAY" || village.status === "NOT_STARTED";
+
       return {
         ...villageData,
         hasPassword: !!accessPassword,
         user: { id: user.id, username: user.username },
-        players: players.map(({ user: playerUser, ...player }) => ({
+        players: players.map(({ user: playerUser, role, ...player }) => ({
           ...player,
+          ...(hideRole ? {} : { role }),
           user: { id: playerUser.id, username: playerUser.username },
         })),
         isLoggedIn: !!currentAuthId,
