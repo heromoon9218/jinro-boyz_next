@@ -36,7 +36,7 @@ export default async function MainLayout({
             >
               村一覧
             </Link>
-            {username ? (
+            {authUser ? (
               <>
                 <Link
                   href="/profile"
@@ -50,7 +50,9 @@ export default async function MainLayout({
                 >
                   設定
                 </Link>
-                <span className="text-sm font-medium">{username}</span>
+                {username && (
+                  <span className="text-sm font-medium">{username}</span>
+                )}
                 <LogoutButton />
               </>
             ) : (
