@@ -67,7 +67,12 @@ export async function signup(formData: {
         rollbackError,
       );
     }
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutError) {
+      // signOut 失敗はログに残すが、ユーザーには Prisma エラーを返す
+      console.error("[signup] Failed to signOut after Prisma error:", signOutError);
+    }
 
     const isUniqueViolation =
       dbError instanceof Prisma.PrismaClientKnownRequestError &&
