@@ -6,7 +6,7 @@ test.describe("Login page", () => {
   });
 
   test("displays login form with all fields", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "ログイン" })).toBeVisible();
+    await expect(page.locator('[data-slot="card-title"]').getByText("ログイン")).toBeVisible();
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(
@@ -46,9 +46,7 @@ test.describe("Signup page", () => {
   });
 
   test("displays signup form with all fields", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "サインアップ" })
-    ).toBeVisible();
+    await expect(page.locator('[data-slot="card-title"]').getByText("サインアップ")).toBeVisible();
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
