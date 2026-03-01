@@ -1,7 +1,9 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { db } from "@/server/db";
 import { loginSchema, signupSchema } from "@/lib/validators/auth";
 
@@ -35,15 +37,41 @@ export async function signup(formData: {
     return { error: "アカウントの作成に失敗しました" };
   }
 
-  // Create User + Profile in Prisma
-  await db.user.create({
-    data: {
-      authId: data.user.id,
-      username,
-      email,
-      profile: { create: {} },
-    },
-  });
+  const authUserId = data.user.id;
+
+  try {
+    await db.user.create({
+      data: {
+        authId: authUserId,
+        username,
+        email,
+        profile: { create: {} },
+      },
+    });
+  } catch (dbError) {
+    // Prisma 作成失敗時: Supabase auth ユーザーを削除してロールバック
+    // 残すと「再登録不可・ログイン不可」の unrecoverable 状態になる
+    try {
+      const admin = createAdminClient();
+      await admin.auth.admin.deleteUser(authUserId);
+    } catch (rollbackError) {
+      // ロールバック失敗はログに残すが、ユーザーには Prisma エラーを返す
+      console.error(
+        "[signup] Failed to rollback auth user after Prisma error:",
+        rollbackError,
+      );
+    }
+    await supabase.auth.signOut();
+
+    const isUniqueViolation =
+      dbError instanceof Prisma.PrismaClientKnownRequestError &&
+      dbError.code === "P2002";
+    return {
+      error: isUniqueViolation
+        ? "このユーザー名またはメールアドレスは既に使われています。別のものをお試しください。"
+        : "アカウントの作成中にエラーが発生しました。しばらく経ってから再度お試しください。",
+    };
+  }
 
   redirect("/villages");
 }
