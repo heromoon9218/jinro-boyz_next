@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { updateEmail } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,22 +17,27 @@ import {
 } from "@/components/ui/card";
 
 export function SettingsForm({ email }: { email: string }) {
+  const router = useRouter();
   const [newEmail, setNewEmail] = useState(email);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  useEffect(() => {
+    setNewEmail(email);
+  }, [email]);
+
   async function handleUpdateEmail() {
     if (!newEmail || newEmail === email) return;
     setIsUpdatingEmail(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
-      if (error) {
-        toast.error(error.message);
+      const result = await updateEmail(newEmail);
+      if (result.error) {
+        toast.error(result.error);
       } else {
         toast.success("メールアドレスを更新しました");
+        router.refresh();
       }
     } finally {
       setIsUpdatingEmail(false);
