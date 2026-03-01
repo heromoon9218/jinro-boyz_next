@@ -5,11 +5,8 @@ export const userRouter = createTRPCRouter({
   updateProfile: protectedProcedure
     .input(z.object({ comment: z.string().max(500).nullable() }))
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.user.findUniqueOrThrow({
-        where: { authId: ctx.user.id },
-      });
       return ctx.db.profile.update({
-        where: { userId: user.id },
+        where: { userId: ctx.dbUser.id },
         data: { comment: input.comment },
       });
     }),

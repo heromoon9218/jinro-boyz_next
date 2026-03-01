@@ -1,59 +1,475 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { Role } from "@prisma/client";
 import {
   createTRPCRouter,
   publicProcedure,
   protectedProcedure,
 } from "@/server/trpc/init";
+import {
+  createVillageSchema,
+  villageListSchema,
+  joinVillageSchema,
+  leaveVillageSchema,
+  startVillageSchema,
+  ruinVillageSchema,
+  kickPlayerSchema,
+} from "@/lib/validators/village";
+import { assignRoles } from "@/server/game/assign-roles";
 
 export const villageRouter = createTRPCRouter({
-  list: publicProcedure.query(async ({ ctx }) => {
-    return ctx.db.village.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { username: true } },
-        _count: { select: { players: true } },
-      },
-    });
-  }),
+  list: publicProcedure
+    .input(villageListSchema)
+    .query(async ({ ctx, input }) => {
+      const { filter, page, perPage } = input;
+
+      const statusFilter =
+        filter === "active"
+          ? { in: ["NOT_STARTED" as const, "IN_PLAY" as const] }
+          : { in: ["ENDED" as const, "RUINED" as const] };
+
+      const [villages, total] = await Promise.all([
+        ctx.db.village.findMany({
+          where: { status: statusFilter },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * perPage,
+          take: perPage,
+          select: {
+            id: true,
+            name: true,
+            playerNum: true,
+            discussionTime: true,
+            status: true,
+            accessPassword: true,
+            createdAt: true,
+            user: { select: { username: true } },
+            _count: { select: { players: true } },
+          },
+        }),
+        ctx.db.village.count({ where: { status: statusFilter } }),
+      ]);
+
+      return {
+        villages: villages.map(({ accessPassword, ...rest }) => ({
+          ...rest,
+          hasPassword: !!accessPassword,
+        })),
+        pagination: {
+          page,
+          perPage,
+          total,
+          totalPages: Math.ceil(total / perPage),
+        },
+      };
+    }),
 
   byId: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.db.village.findUnique({
+      const village = await ctx.db.village.findUnique({
         where: { id: input.id },
         include: {
-          user: { select: { username: true } },
+          user: { select: { id: true, username: true, authId: true } },
           players: {
-            include: { user: { select: { username: true } } },
+            include: { user: { select: { id: true, username: true, authId: true } } },
+            orderBy: { createdAt: "asc" },
           },
         },
       });
+
+      if (!village) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "村が見つかりません" });
+      }
+
+      // 認証ユーザーのauthIdを取得（ログインしている場合）
+      const authUser = ctx.user;
+      const currentAuthId = authUser?.id ?? null;
+
+      // authId を除外し、isOwner/isParticipant をサーバー側で解決
+      const { user, players, accessPassword, ...villageData } = village;
+
+      return {
+        ...villageData,
+        hasPassword: !!accessPassword,
+        user: { id: user.id, username: user.username },
+        players: players.map(({ user: playerUser, ...player }) => ({
+          ...player,
+          user: { id: playerUser.id, username: playerUser.username },
+        })),
+        isLoggedIn: !!currentAuthId,
+        isOwner: currentAuthId === user.authId,
+        isParticipant: players.some((p) => p.user.authId === currentAuthId),
+      };
     }),
 
   create: protectedProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).max(50),
-        playerNum: z.number().int().min(5).max(16),
-        discussionTime: z.number().int().min(60).max(600),
-        accessPassword: z.string().optional(),
-        showVoteTarget: z.boolean().default(true),
-      }),
-    )
+    .input(createVillageSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.user.findUnique({
-        where: { authId: ctx.user.id },
+      const { dbUser } = ctx;
+
+      return ctx.db.$transaction(async (tx) => {
+        const village = await tx.village.create({
+          data: {
+            ...input,
+            userId: dbUser.id,
+          },
+        });
+
+        // 作成者を自動的にプレイヤーとして追加
+        await tx.player.create({
+          data: {
+            username: dbUser.username,
+            userId: dbUser.id,
+            villageId: village.id,
+          },
+        });
+
+        return village;
       });
+    }),
 
-      if (!user) {
-        throw new Error("User not found");
-      }
+  join: protectedProcedure
+    .input(joinVillageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { dbUser } = ctx;
 
-      return ctx.db.village.create({
-        data: {
-          ...input,
-          userId: user.id,
-        },
+      return ctx.db.$transaction(async (tx) => {
+        const [village, existingPlayer, blacklisted] = await Promise.all([
+          tx.village.findUnique({
+            where: { id: input.villageId },
+            select: {
+              status: true,
+              playerNum: true,
+              accessPassword: true,
+              _count: { select: { players: true } },
+            },
+          }),
+          tx.player.findUnique({
+            where: {
+              userId_villageId: {
+                userId: dbUser.id,
+                villageId: input.villageId,
+              },
+            },
+          }),
+          tx.blacklistUser.findUnique({
+            where: {
+              userId_villageId: {
+                userId: dbUser.id,
+                villageId: input.villageId,
+              },
+            },
+          }),
+        ]);
+
+        if (!village) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
+        if (village.status !== "NOT_STARTED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "この村はすでに開始されています",
+          });
+        }
+
+        if (village._count.players >= village.playerNum) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "定員に達しています",
+          });
+        }
+
+        if (existingPlayer) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "すでに参加しています",
+          });
+        }
+
+        if (blacklisted) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "この村には参加できません",
+          });
+        }
+
+        // パスワードチェック
+        if (village.accessPassword) {
+          if (!input.accessPassword || input.accessPassword !== village.accessPassword) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "パスワードが一致しません",
+            });
+          }
+        }
+
+        return tx.player.create({
+          data: {
+            username: dbUser.username,
+            userId: dbUser.id,
+            villageId: input.villageId,
+          },
+        });
+      });
+    }),
+
+  leave: protectedProcedure
+    .input(leaveVillageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { dbUser } = ctx;
+
+      return ctx.db.$transaction(async (tx) => {
+        const [village, player] = await Promise.all([
+          tx.village.findUnique({
+            where: { id: input.villageId },
+            select: { status: true, userId: true },
+          }),
+          tx.player.findUnique({
+            where: {
+              userId_villageId: {
+                userId: dbUser.id,
+                villageId: input.villageId,
+              },
+            },
+          }),
+        ]);
+
+        if (!village) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
+        if (village.status !== "NOT_STARTED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "開始済みの村からは退出できません",
+          });
+        }
+
+        if (village.userId === dbUser.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "村主は退出できません",
+          });
+        }
+
+        if (!player) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "参加していません",
+          });
+        }
+
+        return tx.player.delete({
+          where: { id: player.id },
+        });
+      });
+    }),
+
+  start: protectedProcedure
+    .input(startVillageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { dbUser } = ctx;
+
+      return ctx.db.$transaction(async (tx) => {
+        const village = await tx.village.findUnique({
+          where: { id: input.villageId },
+          include: { players: { select: { id: true } } },
+        });
+
+        if (!village) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
+        if (village.userId !== dbUser.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "村主のみがゲームを開始できます",
+          });
+        }
+
+        if (village.status !== "NOT_STARTED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "この村はすでに開始されています",
+          });
+        }
+
+        if (village.players.length !== village.playerNum) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `定員（${village.playerNum}人）に達していません（現在${village.players.length}人）`,
+          });
+        }
+
+        // ロール割り当て — ロール別にupdateManyでバッチ更新
+        const playerIds = village.players.map((p) => p.id);
+        const roleAssignments = assignRoles(playerIds);
+
+        const byRole = new Map<Role, string[]>();
+        for (const [playerId, role] of roleAssignments) {
+          if (!byRole.has(role)) byRole.set(role, []);
+          byRole.get(role)!.push(playerId);
+        }
+        await Promise.all(
+          [...byRole.entries()].map(([role, ids]) =>
+            tx.player.updateMany({
+              where: { id: { in: ids } },
+              data: { role },
+            }),
+          ),
+        );
+
+        // Room作成（MAIN, WOLF, DEAD）
+        await tx.room.createMany({
+          data: [
+            { type: "MAIN", villageId: village.id },
+            { type: "WOLF", villageId: village.id },
+            { type: "DEAD", villageId: village.id },
+          ],
+        });
+
+        const now = new Date();
+
+        // 村ステータス更新
+        await tx.village.update({
+          where: { id: village.id },
+          data: {
+            status: "IN_PLAY",
+            day: 1,
+            startAt: now,
+            nextUpdateTime: new Date(
+              now.getTime() + village.discussionTime * 1000
+            ),
+          },
+        });
+
+        // Day 1のRecordを全プレイヤー分作成
+        await tx.record.createMany({
+          data: playerIds.map((playerId) => ({
+            day: 1,
+            playerId,
+            villageId: village.id,
+          })),
+        });
+
+        return { success: true };
+      });
+    }),
+
+  ruin: protectedProcedure
+    .input(ruinVillageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { dbUser } = ctx;
+
+      return ctx.db.$transaction(async (tx) => {
+        const village = await tx.village.findUnique({
+          where: { id: input.villageId },
+          select: { id: true, status: true, userId: true },
+        });
+
+        if (!village) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
+        if (village.userId !== dbUser.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "村主のみが廃村できます",
+          });
+        }
+
+        if (village.status === "ENDED" || village.status === "RUINED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "この村はすでに終了しています",
+          });
+        }
+
+        return tx.village.update({
+          where: { id: village.id },
+          data: { status: "RUINED" },
+        });
+      });
+    }),
+
+  kick: protectedProcedure
+    .input(kickPlayerSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { dbUser } = ctx;
+
+      return ctx.db.$transaction(async (tx) => {
+        const [village, player] = await Promise.all([
+          tx.village.findUnique({
+            where: { id: input.villageId },
+            select: { status: true, userId: true },
+          }),
+          tx.player.findUnique({
+            where: { id: input.playerId },
+            select: { id: true, userId: true },
+          }),
+        ]);
+
+        if (!village) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
+        if (village.userId !== dbUser.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "村主のみがキックできます",
+          });
+        }
+
+        if (village.status !== "NOT_STARTED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "開始前の村でのみキックできます",
+          });
+        }
+
+        if (!player) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "プレイヤーが見つかりません",
+          });
+        }
+
+        if (player.userId === dbUser.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "自分自身はキックできません",
+          });
+        }
+
+        // ブラックリストに追加
+        await tx.blacklistUser.create({
+          data: {
+            userId: player.userId,
+            villageId: input.villageId,
+            reason: "村主によるキック",
+          },
+        });
+
+        // プレイヤー削除
+        return tx.player.delete({
+          where: { id: player.id },
+        });
       });
     }),
 });

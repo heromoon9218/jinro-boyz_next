@@ -105,11 +105,12 @@ model Village {
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  user    User     @relation(fields: [userId], references: [id])
-  players Player[]
-  rooms   Room[]
-  records Record[]
-  results Result[]
+  user           User            @relation(fields: [userId], references: [id])
+  players        Player[]
+  rooms          Room[]
+  records        Record[]
+  results        Result[]
+  blacklistUsers BlacklistUser[]
 
   @@map("villages")
 }
@@ -225,9 +226,13 @@ model Result {
 model BlacklistUser {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
+  villageId String   @map("village_id")
   reason    String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, villageId])
   @@map("blacklist_users")
 }
