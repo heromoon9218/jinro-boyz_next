@@ -31,12 +31,10 @@ import { Switch } from "@/components/ui/switch";
 import { useTRPC } from "@/lib/trpc/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createVillageSchema, type CreateVillageInput } from "@/lib/validators/village";
-import { formatDiscussionTime } from "@/types/village-helpers";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 const PLAYER_NUM_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 5);
-const DISCUSSION_TIME_OPTIONS = [60, 120, 180, 240, 300, 600];
 
 export function CreateVillageDialog() {
   const [open, setOpen] = useState(false);
@@ -49,7 +47,7 @@ export function CreateVillageDialog() {
     defaultValues: {
       name: "",
       playerNum: 5,
-      discussionTime: 180,
+      discussionTime: 3,
       accessPassword: "",
       showVoteTarget: true,
     },
@@ -136,24 +134,44 @@ export function CreateVillageDialog() {
               name="discussionTime"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>議論時間</FormLabel>
-                  <Select
-                    onValueChange={(v) => field.onChange(Number(v))}
-                    value={String(field.value)}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {DISCUSSION_TIME_OPTIONS.map((t) => (
-                        <SelectItem key={t} value={String(t)}>
-                          {formatDiscussionTime(t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>議論時間（分）</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1440}
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="scheduledStartAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>開始予定（任意）</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      value={
+                        field.value
+                          ? new Date(field.value.getTime() - field.value.getTimezoneOffset() * 60000)
+                              .toISOString()
+                              .slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value ? new Date(e.target.value) : undefined,
+                        )
+                      }
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

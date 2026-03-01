@@ -8,6 +8,7 @@ import {
   VILLAGE_STATUS_LABELS,
   VILLAGE_STATUS_VARIANTS,
   formatDiscussionTime,
+  formatScheduledStart,
 } from "@/types/village-helpers";
 import { PlayerList } from "./player-list";
 import { VillageActions } from "./village-actions";
@@ -63,6 +64,12 @@ export function VillageDetailClient({ villageId }: VillageDetailClientProps) {
           <span className="text-muted-foreground">投票先公開: </span>
           {village.showVoteTarget ? "あり" : "なし"}
         </div>
+        {village.scheduledStartAt && (
+          <div>
+            <span className="text-muted-foreground">開始予定: </span>
+            {formatScheduledStart(village.scheduledStartAt)}
+          </div>
+        )}
         {village.hasPassword && (
           <div>
             <span className="text-muted-foreground">パスワード: </span>あり

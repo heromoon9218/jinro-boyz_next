@@ -99,6 +99,7 @@ model Village {
   winner         Winner?
   accessPassword String?       @map("access_password")
   showVoteTarget Boolean       @default(true) @map("show_vote_target")
+  scheduledStartAt DateTime?   @map("scheduled_start_at")
   startAt        DateTime?     @map("start_at")
   nextUpdateTime DateTime?     @map("next_update_time")
   userId         String        @map("user_id") // village creator

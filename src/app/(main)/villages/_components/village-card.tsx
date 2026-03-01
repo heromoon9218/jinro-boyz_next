@@ -9,6 +9,7 @@ import {
   VILLAGE_STATUS_LABELS,
   VILLAGE_STATUS_VARIANTS,
   formatDiscussionTime,
+  formatScheduledStart,
 } from "@/types/village-helpers";
 
 interface VillageCardProps {
@@ -18,6 +19,7 @@ interface VillageCardProps {
     playerNum: number;
     discussionTime: number;
     status: VillageStatus;
+    scheduledStartAt: Date | null;
     hasPassword: boolean;
     user: { username: string };
     _count: { players: number };
@@ -43,6 +45,9 @@ export function VillageCard({ village }: VillageCardProps) {
               {village._count.players}/{village.playerNum}人
             </span>
             <span>議論 {formatDiscussionTime(village.discussionTime)}</span>
+            {village.scheduledStartAt && (
+              <span>開始予定: {formatScheduledStart(village.scheduledStartAt)}</span>
+            )}
             <span>作成者: {village.user.username}</span>
             {village.hasPassword && (
               <span className="flex items-center gap-1">

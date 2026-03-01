@@ -23,3 +23,12 @@ export function formatDiscussionTime(seconds: number): string {
   if (remainingSeconds === 0) return `${minutes}分`;
   return `${minutes}分${remainingSeconds}秒`;
 }
+
+export function formatScheduledStart(date: Date): string {
+  const d = new Date(date);
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${month}/${day} ${hours}:${minutes}`;
+}

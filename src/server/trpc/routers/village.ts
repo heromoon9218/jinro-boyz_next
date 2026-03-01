@@ -40,6 +40,7 @@ export const villageRouter = createTRPCRouter({
             playerNum: true,
             discussionTime: true,
             status: true,
+            scheduledStartAt: true,
             accessPassword: true,
             createdAt: true,
             user: { select: { username: true } },
@@ -106,11 +107,13 @@ export const villageRouter = createTRPCRouter({
     .input(createVillageSchema)
     .mutation(async ({ ctx, input }) => {
       const { dbUser } = ctx;
+      const { discussionTime, ...rest } = input;
 
       return ctx.db.$transaction(async (tx) => {
         const village = await tx.village.create({
           data: {
-            ...input,
+            ...rest,
+            discussionTime: discussionTime * 60, // 分→秒に変換
             userId: dbUser.id,
           },
         });
