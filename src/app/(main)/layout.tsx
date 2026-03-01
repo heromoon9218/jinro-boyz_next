@@ -1,10 +1,27 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/server/db";
+import { LogoutButton } from "./logout-button";
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  let username: string | null = null;
+  if (authUser) {
+    const user = await db.user.findUnique({
+      where: { authId: authUser.id },
+      select: { username: true },
+    });
+    username = user?.username ?? null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
@@ -19,18 +36,41 @@ export default function MainLayout({
             >
               村一覧
             </Link>
-            <Link
-              href="/profile"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              プロフィール
-            </Link>
-            <Link
-              href="/settings"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              設定
-            </Link>
+            {authUser ? (
+              <>
+                <Link
+                  href="/profile"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  プロフィール
+                </Link>
+                <Link
+                  href="/settings"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  設定
+                </Link>
+                {username && (
+                  <span className="text-sm font-medium">{username}</span>
+                )}
+                <LogoutButton />
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  ログイン
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-sm font-medium text-foreground hover:text-foreground"
+                >
+                  新規登録
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>

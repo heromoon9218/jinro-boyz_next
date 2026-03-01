@@ -16,11 +16,9 @@ test.describe("Smoke tests", () => {
     await expect(page).toHaveURL("/signup");
   });
 
-  test("unauthenticated user is redirected from /villages to /login", async ({
-    page,
-  }) => {
+  test("/villages is accessible without authentication", async ({ page }) => {
     await page.goto("/villages");
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL(/\/villages/);
   });
 
   test("unauthenticated user is redirected from /profile to /login", async ({
