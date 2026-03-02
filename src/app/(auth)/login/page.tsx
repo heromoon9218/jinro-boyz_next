@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -25,12 +26,14 @@ import {
 } from "@/components/ui/form";
 
 export default function LoginPage() {
+  const queryClient = useQueryClient();
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: LoginInput) {
+    queryClient.clear();
     const result = await login(values);
     if (result?.error) {
       toast.error(result.error);

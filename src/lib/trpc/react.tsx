@@ -7,9 +7,10 @@ import {
   type TRPCLink,
 } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import superjson from "superjson";
 import type { AppRouter } from "@/server/trpc/routers/_app";
+import { createClient } from "@/lib/supabase/client";
 
 function getBaseUrl() {
   if (typeof window !== "undefined") return "";
@@ -45,6 +46,19 @@ export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
       links: makeLinks(),
     }),
   );
+
+  // 認証状態が変わったらキャッシュをクリア（セッション切れ・マルチタブ対応）
+  useEffect(() => {
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT" || event === "SIGNED_IN") {
+        queryClient.clear();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
