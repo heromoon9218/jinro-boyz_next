@@ -119,21 +119,23 @@ export function VillageActions({
     <div className="flex flex-wrap gap-2">
       {/* 参加ボタン: 未開始 + 未参加 + 定員未到達 */}
       {village.status === "NOT_STARTED" && !isParticipant && !isFull && (
-        <>
-          <Button
-            onClick={handleJoin}
-            disabled={joinMutation.isPending}
-          >
-            {joinMutation.isPending ? "参加中..." : "参加する"}
-          </Button>
-          <JoinPasswordDialog
-            key={String(showJoinDialog)}
-            open={showJoinDialog}
-            onOpenChange={setShowJoinDialog}
-            onSubmit={handleJoinWithPassword}
-            isPending={joinMutation.isPending}
-          />
-        </>
+        <Button
+          onClick={handleJoin}
+          disabled={joinMutation.isPending}
+        >
+          {joinMutation.isPending ? "参加中..." : "参加する"}
+        </Button>
+      )}
+
+      {/* 参加パスワードダイアログ: 条件ブロック外に配置し、isFull によるアンマウントを防ぐ */}
+      {village.status === "NOT_STARTED" && !isParticipant && (
+        <JoinPasswordDialog
+          key={String(showJoinDialog)}
+          open={showJoinDialog}
+          onOpenChange={setShowJoinDialog}
+          onSubmit={handleJoinWithPassword}
+          isPending={joinMutation.isPending}
+        />
       )}
 
       {/* 退出ボタン: 未開始 + 参加中 + 村主でない */}
