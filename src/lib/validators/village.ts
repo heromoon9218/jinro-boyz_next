@@ -13,10 +13,46 @@ export const createVillageSchema = z.object({
   discussionTime: z
     .number()
     .int()
-    .min(60, "議論時間は最短60秒です")
-    .max(600, "議論時間は最長600秒です"),
+    .min(1, "議論時間は最短1分です")
+    .max(1440, "議論時間は最長1440分です"),
   accessPassword: z.string().optional(),
-  showVoteTarget: z.boolean().default(true),
+  scheduledStartAt: z.date({ error: "開始予定を入力してください" }).optional(),
+  showVoteTarget: z.boolean(),
 });
 
 export type CreateVillageInput = z.infer<typeof createVillageSchema>;
+
+export const villageListSchema = z.object({
+  filter: z.enum(["active", "ended"]).default("active"),
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(50).default(10),
+});
+
+export type VillageListInput = z.infer<typeof villageListSchema>;
+
+export const joinVillageSchema = z.object({
+  villageId: z.string(),
+  accessPassword: z.string().optional(),
+});
+
+export type JoinVillageInput = z.infer<typeof joinVillageSchema>;
+
+const villageIdSchema = z.object({
+  villageId: z.string(),
+});
+
+export const leaveVillageSchema = villageIdSchema;
+export type LeaveVillageInput = z.infer<typeof leaveVillageSchema>;
+
+export const startVillageSchema = villageIdSchema;
+export type StartVillageInput = z.infer<typeof startVillageSchema>;
+
+export const ruinVillageSchema = villageIdSchema;
+export type RuinVillageInput = z.infer<typeof ruinVillageSchema>;
+
+export const kickPlayerSchema = z.object({
+  villageId: z.string(),
+  playerId: z.string(),
+});
+
+export type KickPlayerInput = z.infer<typeof kickPlayerSchema>;

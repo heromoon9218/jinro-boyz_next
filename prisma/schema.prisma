@@ -99,17 +99,19 @@ model Village {
   winner         Winner?
   accessPassword String?       @map("access_password")
   showVoteTarget Boolean       @default(true) @map("show_vote_target")
+  scheduledStartAt DateTime?   @map("scheduled_start_at")
   startAt        DateTime?     @map("start_at")
   nextUpdateTime DateTime?     @map("next_update_time")
   userId         String        @map("user_id") // village creator
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  user    User     @relation(fields: [userId], references: [id])
-  players Player[]
-  rooms   Room[]
-  records Record[]
-  results Result[]
+  user           User            @relation(fields: [userId], references: [id])
+  players        Player[]
+  rooms          Room[]
+  records        Record[]
+  results        Result[]
+  blacklistUsers BlacklistUser[]
 
   @@map("villages")
 }
@@ -225,9 +227,13 @@ model Result {
 model BlacklistUser {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
+  villageId String   @map("village_id")
   reason    String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, villageId])
   @@map("blacklist_users")
 }
