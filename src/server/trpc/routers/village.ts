@@ -132,7 +132,9 @@ export const villageRouter = createTRPCRouter({
           },
         });
 
-        return village;
+        // accessPassword を除外し、hasPassword に変換（list/byId と同様）
+        const { accessPassword, ...villageData } = village;
+        return { ...villageData, hasPassword: !!accessPassword };
       });
     }),
 
