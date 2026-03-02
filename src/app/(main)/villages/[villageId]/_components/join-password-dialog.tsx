@@ -29,7 +29,6 @@ export function JoinPasswordDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit(password);
-    setPassword("");
   }
 
   return (

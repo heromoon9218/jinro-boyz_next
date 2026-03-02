@@ -51,6 +51,7 @@ export function VillageActions({
     trpc.village.join.mutationOptions({
       onSuccess: () => {
         toast.success("村に参加しました");
+        setShowJoinDialog(false);
         invalidate();
       },
       onError: (error) => {
@@ -112,7 +113,6 @@ export function VillageActions({
       villageId: village.id,
       accessPassword: password,
     });
-    setShowJoinDialog(false);
   }
 
   return (
@@ -127,6 +127,7 @@ export function VillageActions({
             {joinMutation.isPending ? "参加中..." : "参加する"}
           </Button>
           <JoinPasswordDialog
+            key={String(showJoinDialog)}
             open={showJoinDialog}
             onOpenChange={setShowJoinDialog}
             onSubmit={handleJoinWithPassword}
