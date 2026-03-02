@@ -244,6 +244,17 @@ export const villageRouter = createTRPCRouter({
       const { dbUser } = ctx;
 
       return ctx.db.$transaction(async (tx) => {
+        // start/join と競合しないよう、村行を FOR UPDATE でロック
+        const locked = await tx.$queryRaw<{ id: string }[]>(
+          Prisma.sql`SELECT id FROM villages WHERE id = ${input.villageId} FOR UPDATE`
+        );
+        if (locked.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
         const [village, player] = await Promise.all([
           tx.village.findUnique({
             where: { id: input.villageId },
@@ -299,6 +310,17 @@ export const villageRouter = createTRPCRouter({
       const { dbUser } = ctx;
 
       return ctx.db.$transaction(async (tx) => {
+        // 同時に leave/join が走らないよう、村行を FOR UPDATE でロック
+        const locked = await tx.$queryRaw<{ id: string }[]>(
+          Prisma.sql`SELECT id FROM villages WHERE id = ${input.villageId} FOR UPDATE`
+        );
+        if (locked.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "村が見つかりません",
+          });
+        }
+
         const village = await tx.village.findUnique({
           where: { id: input.villageId },
           include: { players: { select: { id: true } } },
