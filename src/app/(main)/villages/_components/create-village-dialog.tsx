@@ -165,7 +165,7 @@ export function CreateVillageDialog() {
               name="scheduledStartAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>開始予定</FormLabel>
+                  <FormLabel>開始予定（任意）</FormLabel>
                   <FormControl>
                     <Input
                       type="datetime-local"
