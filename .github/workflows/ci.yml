@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 env:
+  DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
   DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
 jobs:
