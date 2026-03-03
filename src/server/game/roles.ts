@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Role } from "@/generated/prisma";
 import { ROLE_COMPOSITIONS } from "@/types/game";
 
 /**

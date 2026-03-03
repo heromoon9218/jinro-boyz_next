@@ -7,7 +7,7 @@ import {
   RoomType,
   PostOwner,
   UserRole,
-} from "@prisma/client";
+} from "@/generated/prisma";
 
 export {
   Role,
