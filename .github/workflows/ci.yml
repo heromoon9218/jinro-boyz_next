@@ -6,11 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
-    env:
-      DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
     steps:
       - uses: actions/checkout@v6
@@ -34,8 +35,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: lint-and-build
-    env:
-      DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
     steps:
       - uses: actions/checkout@v6
