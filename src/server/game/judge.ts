@@ -1,4 +1,4 @@
-import { Role, Winner } from "@prisma/client";
+import { Role, Winner } from "@/generated/prisma";
 
 interface LivingPlayer {
   id: string;

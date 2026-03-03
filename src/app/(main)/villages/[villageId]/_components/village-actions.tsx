@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { VillageStatus } from "@prisma/client";
+import type { VillageStatus } from "@/generated/prisma";
 import { toast } from "sonner";
 import { JoinPasswordDialog } from "./join-password-dialog";
 

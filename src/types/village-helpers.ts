@@ -1,4 +1,4 @@
-import type { VillageStatus } from "@prisma/client";
+import type { VillageStatus } from "@/generated/prisma";
 
 export const VILLAGE_STATUS_LABELS: Record<VillageStatus, string> = {
   NOT_STARTED: "募集中",

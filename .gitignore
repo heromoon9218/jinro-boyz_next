@@ -15,6 +15,9 @@
 /test-results/
 /playwright-report/
 
+# generated (Prisma)
+src/generated/
+
 # next.js
 /.next/
 /out/

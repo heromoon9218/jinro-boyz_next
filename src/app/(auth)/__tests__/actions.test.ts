@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mockAuthUserId = "auth-user-123";

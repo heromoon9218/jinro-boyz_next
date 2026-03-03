@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Worktree build artifacts:
     ".claude/**",
+    // Generated Prisma client:
+    "src/generated/**",
   ]),
 ]);
 

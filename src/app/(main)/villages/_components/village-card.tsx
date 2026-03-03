@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Lock, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { VillageStatus } from "@prisma/client";
+import type { VillageStatus } from "@/generated/prisma";
 import {
   VILLAGE_STATUS_LABELS,
   VILLAGE_STATUS_VARIANTS,

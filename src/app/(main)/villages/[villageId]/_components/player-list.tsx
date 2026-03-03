@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { VillageStatus } from "@prisma/client";
+import type { VillageStatus } from "@/generated/prisma";
 import { toast } from "sonner";
 
 interface PlayerListProps {
