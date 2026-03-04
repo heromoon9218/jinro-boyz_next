@@ -36,6 +36,27 @@ npx prisma migrate dev
 npm run test:e2e
 ```
 
+## ローカルSupabase開発環境
+
+Docker Desktop 起動済みの前提。
+
+```bash
+# 起動（Auth, Postgres, Storage 等がローカルで立ち上がる）
+npx supabase start
+
+# 停止
+npx supabase stop
+
+# ステータス確認（接続情報を表示）
+npx supabase status
+
+# Supabase Studio（ローカルDB管理画面）
+# http://127.0.0.1:54323
+```
+
+- `.env.local` にローカルSupabaseの接続情報を設定済み（`.env` の本番値を上書き）
+- `prisma.config.ts` が `.env.local` を優先読み込みするため、Prisma CLI もそのまま使える
+
 ### Mandatory post-edit checks
 
 `src/` 配下のファイル編集後:
