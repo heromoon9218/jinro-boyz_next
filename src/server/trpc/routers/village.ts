@@ -405,6 +405,14 @@ export const villageRouter = createTRPCRouter({
           })),
         });
 
+        // Day 1のResult初期レコード作成
+        await tx.result.create({
+          data: {
+            day: 1,
+            villageId: village.id,
+          },
+        });
+
         return { success: true };
       });
     }),

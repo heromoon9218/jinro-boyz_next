@@ -1,25 +1,22 @@
 import { create } from "zustand";
+import type { RoomType } from "@/generated/prisma";
 
 interface GameState {
-  currentDay: number;
-  isNight: boolean;
+  activeRoomType: RoomType;
   selectedTarget: string | null;
-  setCurrentDay: (day: number) => void;
-  setIsNight: (isNight: boolean) => void;
+  setActiveRoomType: (type: RoomType) => void;
   setSelectedTarget: (targetId: string | null) => void;
   reset: () => void;
 }
 
 const initialState = {
-  currentDay: 0,
-  isNight: false,
-  selectedTarget: null,
+  activeRoomType: "MAIN" as RoomType,
+  selectedTarget: null as string | null,
 };
 
 export const useGameStore = create<GameState>((set) => ({
   ...initialState,
-  setCurrentDay: (day) => set({ currentDay: day }),
-  setIsNight: (isNight) => set({ isNight }),
+  setActiveRoomType: (type) => set({ activeRoomType: type }),
   setSelectedTarget: (targetId) => set({ selectedTarget: targetId }),
   reset: () => set(initialState),
 }));
