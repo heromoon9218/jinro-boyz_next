@@ -1,15 +1,10 @@
 # CLAUDE.md
 
-## Conversation Guidelines
-
-- 常に日本語で会話する
-- コミットメッセージは日本語で記述する
-
 ## Project Overview
 
 **人狼BOYZ** — Next.js fullstack オンライン人狼ゲーム
 
-**Stack**: Next.js 15 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 6, tRPC v11, Zustand, Zod + React Hook Form
+**Stack**: Next.js 16 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 6, tRPC v11, Zustand, Zod + React Hook Form
 
 ## Commands
 
@@ -31,6 +26,9 @@ npx prisma migrate dev
 
 # メール変更トリガー（初回セットアップ時のみ）
 # Supabase Dashboard > SQL Editor で scripts/sync_user_email_on_auth_change.sql を実行
+
+# テスト (Vitest)
+npm run test
 
 # E2E テスト (Playwright)
 npm run test:e2e
@@ -62,7 +60,7 @@ npx supabase status
 `src/` 配下のファイル編集後:
 1. `npm run lint`
 2. `npm run build`
-3. `code-reviewer` サブエージェントでコードレビューを実行
+3. `code-reviewer` サブエージェント（`.claude/agents/code-reviewer.md`）でコードレビューを実行
 
 ## Architecture
 
@@ -73,9 +71,19 @@ npx supabase status
 - `src/lib/supabase/` — Supabase client (browser + server + middleware)
 - `src/lib/trpc/` — tRPC client + React Query provider
 - `src/lib/validators/` — Zod schemas
+- `src/lib/hooks/` — Custom React hooks (auth, realtime)
 - `src/components/ui/` — shadcn/ui components
 - `src/stores/` — Zustand stores
 - `src/types/` — Type definitions + game constants
+
+## Key Files
+
+- `prisma.config.ts` — `.env.local` を優先読み込み（Prisma CLI用）
+- `next.config.ts` — Next.js設定
+- `playwright.config.ts` — E2Eテスト設定
+- `vitest.config.ts` — ユニットテスト設定
+- `components.json` — shadcn/ui + TailwindCSS設定
+- `scripts/sync_user_email_on_auth_change.sql` — Supabase Auth トリガー（初回のみ）
 
 ## Domain Model
 
