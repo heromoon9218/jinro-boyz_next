@@ -396,20 +396,20 @@ async function main() {
   ]);
 
   // Day 1 Records
-  const day1CVoteTargets = [
-    { player: pcTaro, target: pcRen },
-    { player: pcHanako, target: pcYuuki },
-    { player: pcYuuki, target: pcTaro },
-    { player: pcSakura, target: pcYuuki },
-    { player: pcRen, target: pcYuuki },
+  const day1CRecords = [
+    { player: pcTaro },
+    { player: pcHanako },
+    { player: pcYuuki },
+    { player: pcSakura },
+    { player: pcRen },
   ];
 
-  for (const { player, target } of day1CVoteTargets) {
+  for (const { player } of day1CRecords) {
     const data: Record<string, unknown> = {
       day: 1,
       playerId: player.id,
       villageId: villageC.id,
-      voteTargetId: target.id,
+      voteTargetId: null, // Day 1 は投票スキップ
     };
 
     // 占い師(はなこ): ゆうき を占う
@@ -424,18 +424,7 @@ async function main() {
     await prisma.record.create({ data: data as never });
   }
 
-  // Day 1 Result: 投票でゆうき処刑はDay1ではまだ (多数決でゆうきだが、ストーリー上Day1はさくらが襲撃される)
-  // 修正: Day 1 は誰も処刑せず（初日処刑なし or ストーリーに合わせて調整）
-  // ストーリー: Day 1 投票はゆうきが最多票だが実際は処刑される。さくらが襲撃される。
-  // → Day 1: さくら襲撃死 + ゆうき処刑? → 5人→3人は早すぎる
-  // → Day 1: 投票分散で処刑なし or ゆうき以外に投票 → さくら襲撃死
-  // シンプルに: Day 1 投票でれん処刑（ミスリード）、さくら襲撃死
-  // いや、計画に合わせて Day 2 で終了。Day 1: さくら襲撃死。Day 2: ゆうき処刑で人狼全滅→HUMANS勝利
-
-  // Day 1 Result: 投票は分散（処刑なし扱い or 再投票）→ さくら襲撃死
-  // 簡略化: Day 1 は誰か処刑 + さくら襲撃死。ここでは「ゆうき」以外を処刑して、Day2でゆうきを処刑して勝利
-  // → でもそうすると5人→3人→2人でゲーム状態がおかしい
-  // 最もシンプル: Day 1 投票なし（初日は投票スキップ）、さくら襲撃死。Day 2 ゆうき処刑→人狼全滅→勝利
+  // Day 1 は投票スキップとして扱い、夜にさくらが襲撃される。
 
   await prisma.result.create({
     data: {
