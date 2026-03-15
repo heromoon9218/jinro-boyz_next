@@ -175,7 +175,7 @@ export const gameRouter = createTRPCRouter({
     }),
 
   /**
-   * Get messages for a specific room and day.
+   * Get paginated messages for a specific room.
    * Access control: MAIN=all participants, WOLF=werewolves only, DEAD=dead only.
    */
   messages: protectedProcedure
@@ -225,22 +225,53 @@ export const gameRouter = createTRPCRouter({
       }
 
       const posts = await ctx.db.post.findMany({
-        where: { roomId: input.roomId, day: input.day },
+        where: {
+          roomId: input.roomId,
+          ...(input.cursor
+            ? {
+                OR: [
+                  {
+                    createdAt: {
+                      lt: new Date(input.cursor.createdAt),
+                    },
+                  },
+                  {
+                    createdAt: new Date(input.cursor.createdAt),
+                    id: { lt: input.cursor.id },
+                  },
+                ],
+              }
+            : {}),
+        },
         include: {
           player: { select: { id: true, username: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: input.limit + 1,
       });
 
-      return posts.map((p) => ({
-        id: p.id,
-        content: p.content,
-        owner: p.owner,
-        player: p.player
-          ? { id: p.player.id, username: p.player.username }
-          : null,
-        createdAt: p.createdAt,
-      }));
+      const pagePosts = posts.slice(0, input.limit);
+      const nextCursor =
+        posts.length > input.limit
+          ? {
+              createdAt: pagePosts[pagePosts.length - 1]!.createdAt.toISOString(),
+              id: pagePosts[pagePosts.length - 1]!.id,
+            }
+          : null;
+
+      return {
+        items: pagePosts.reverse().map((p) => ({
+          id: p.id,
+          content: p.content,
+          day: p.day,
+          owner: p.owner,
+          player: p.player
+            ? { id: p.player.id, username: p.player.username }
+            : null,
+          createdAt: p.createdAt,
+        })),
+        nextCursor,
+      };
     }),
 
   /**

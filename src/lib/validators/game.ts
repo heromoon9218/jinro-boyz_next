@@ -19,5 +19,11 @@ export const sendMessageSchema = z.object({
 
 export const messagesSchema = z.object({
   roomId: z.string(),
-  day: z.number().int().min(1),
+  limit: z.number().int().min(1).max(50).default(20),
+  cursor: z
+    .object({
+      createdAt: z.string().datetime(),
+      id: z.string(),
+    })
+    .nullish(),
 });

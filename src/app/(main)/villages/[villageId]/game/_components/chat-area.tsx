@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 import { useRealtimePosts } from "@/lib/hooks/use-realtime-posts";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -11,6 +11,8 @@ import { ChatMessage } from "./chat-message";
 import type { RoomType, Role, PlayerStatus } from "@/generated/prisma";
 import { useGameStore } from "@/stores/game-store";
 
+const PAGE_SIZE = 20;
+
 interface RoomInfo {
   id: string;
   type: RoomType;
@@ -18,7 +20,6 @@ interface RoomInfo {
 
 interface ChatAreaProps {
   rooms: RoomInfo[];
-  day: number;
   myRole: Role;
   myStatus: PlayerStatus;
   isEnded: boolean;
@@ -26,7 +27,6 @@ interface ChatAreaProps {
 
 export function ChatArea({
   rooms,
-  day,
   myRole,
   myStatus,
   isEnded,
@@ -68,7 +68,6 @@ export function ChatArea({
           <RoomChat
             roomId={room.id}
             roomType={room.type}
-            day={day}
             myRole={myRole}
             myStatus={myStatus}
             isEnded={isEnded}
@@ -90,17 +89,15 @@ function roomLabel(type: RoomType): string {
   }
 }
 
-function RoomChat({
+export function RoomChat({
   roomId,
   roomType,
-  day,
   myRole,
   myStatus,
   isEnded,
 }: {
   roomId: string;
   roomType: RoomType;
-  day: number;
   myRole: Role;
   myStatus: PlayerStatus;
   isEnded: boolean;
@@ -108,20 +105,63 @@ function RoomChat({
   const trpc = useTRPC();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasAutoScrolledRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const prependInFlightRef = useRef(false);
+  const previousScrollHeightRef = useRef(0);
+  const previousScrollTopRef = useRef(0);
 
-  const { data: messages } = useQuery(
-    trpc.game.messages.queryOptions({ roomId, day }),
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery(
+    trpc.game.messages.infiniteQueryOptions(
+      { roomId, limit: PAGE_SIZE },
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+    ),
   );
+  const messages = useMemo(
+    () => data?.pages.toReversed().flatMap((page) => page.items) ?? [],
+    [data],
+  );
+  const firstMessageId = messages[0]?.id;
+  const lastMessageId = messages.at(-1)?.id;
 
   useRealtimePosts(roomId);
 
-  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    hasAutoScrolledRef.current = false;
+    isNearBottomRef.current = true;
+    prependInFlightRef.current = false;
+    previousScrollHeightRef.current = 0;
+    previousScrollTopRef.current = 0;
+  }, [roomId]);
+
+  // Keep scroll position when older messages are prepended,
+  // and auto-follow new messages only when the user is near the bottom.
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
+    if (!el) return;
+
+    if (prependInFlightRef.current) {
+      el.scrollTop =
+        el.scrollHeight -
+        previousScrollHeightRef.current +
+        previousScrollTopRef.current;
+      prependInFlightRef.current = false;
+      return;
     }
-  }, [messages]);
+
+    if (!hasAutoScrolledRef.current || isNearBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      hasAutoScrolledRef.current = true;
+    }
+  }, [roomId, messages.length, firstMessageId, lastMessageId]);
 
   const sendMutation = useMutation(
     trpc.game.sendMessage.mutationOptions({
@@ -145,13 +185,55 @@ function RoomChat({
     sendMutation.mutate({ roomId, content: trimmed });
   }
 
+  const loadOlderMessages = useCallback(
+    (el: HTMLDivElement) => {
+      if (!hasNextPage || isFetchingNextPage || prependInFlightRef.current) {
+        return;
+      }
+
+      previousScrollHeightRef.current = el.scrollHeight;
+      previousScrollTopRef.current = el.scrollTop;
+      prependInFlightRef.current = true;
+      void fetchNextPage().catch(() => {
+        prependInFlightRef.current = false;
+      });
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage],
+  );
+
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceToBottom < 120;
+
+    if (el.scrollTop > 80) {
+      return;
+    }
+
+    loadOlderMessages(el);
+  }
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollHeight > el.clientHeight + 1) return;
+    loadOlderMessages(el);
+  }, [roomId, messages.length, loadOlderMessages]);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
+        data-testid="chat-scroll-container"
         className="flex-1 space-y-2 overflow-y-auto px-3 py-2"
       >
-        {messages?.map((msg) => (
+        {isFetchingNextPage && (
+          <p className="py-2 text-center text-xs text-muted-foreground">
+            過去のメッセージを読み込み中...
+          </p>
+        )}
+        {messages.map((msg) => (
           <ChatMessage
             key={msg.id}
             content={msg.content}
@@ -160,7 +242,7 @@ function RoomChat({
             createdAt={msg.createdAt}
           />
         ))}
-        {(!messages || messages.length === 0) && (
+        {!isLoading && messages.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">
             メッセージはありません
           </p>
