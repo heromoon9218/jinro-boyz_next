@@ -89,7 +89,6 @@ export function GameClient({ villageId }: GameClientProps) {
         <div className="flex flex-1 flex-col overflow-hidden">
           <ChatArea
             rooms={gameState.rooms}
-            day={gameState.day}
             myRole={gameState.myRole}
             myStatus={gameState.myStatus}
             isEnded={false}
