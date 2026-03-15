@@ -156,6 +156,8 @@ export async function proceedDay(villageId: string): Promise<void> {
     const aliveAfterLynch = alivePlayers
       .filter((p) => p.id !== lynchTargetId)
       .map((p) => ({ id: p.id, role: p.role }));
+    const aliveAfterLynchIds = new Set(aliveAfterLynch.map((p) => p.id));
+    const nightRecords = records.filter((r) => aliveAfterLynchIds.has(r.playerId));
 
     const winnerAfterLynch = judgeEnd(aliveAfterLynch);
     if (winnerAfterLynch) {
@@ -166,11 +168,11 @@ export async function proceedDay(villageId: string): Promise<void> {
     // ========================================
     // Night Phase: Record divine + guard in Result
     // ========================================
-    const fortuneTellerRecord = records.find(
-      (r) => r.player.role === "FORTUNE_TELLER" && r.player.status === "ALIVE",
+    const fortuneTellerRecord = nightRecords.find(
+      (r) => r.player.role === "FORTUNE_TELLER",
     );
-    const bodyguardRecord = records.find(
-      (r) => r.player.role === "BODYGUARD" && r.player.status === "ALIVE",
+    const bodyguardRecord = nightRecords.find(
+      (r) => r.player.role === "BODYGUARD",
     );
 
     if (result) {
@@ -190,11 +192,8 @@ export async function proceedDay(villageId: string): Promise<void> {
 
     if (currentDay > 1) {
       // Get all alive werewolf records, pick the one with latest updatedAt
-      const wolfRecords = records.filter(
-        (r) =>
-          r.player.role === "WEREWOLF" &&
-          r.player.status === "ALIVE" &&
-          r.attackTargetId,
+      const wolfRecords = nightRecords.filter(
+        (r) => r.player.role === "WEREWOLF" && r.attackTargetId,
       );
 
       let attackTargetId: string | null = null;
