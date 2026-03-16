@@ -32,7 +32,11 @@ export function GameResult({ villageId }: GameResultProps) {
   }
 
   const winnerLabel =
-    data.winner === "HUMANS" ? "人間陣営の勝利" : "人狼陣営の勝利";
+    data.winner === "HUMANS"
+      ? "人間陣営の勝利"
+      : data.winner === "WEREWOLVES"
+        ? "人狼陣営の勝利"
+        : "勝敗情報が不正です";
 
   return (
     <div className="space-y-6 p-4">
