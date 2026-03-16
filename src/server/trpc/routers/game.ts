@@ -260,7 +260,7 @@ export const gameRouter = createTRPCRouter({
           : null;
 
       return {
-        items: pagePosts.reverse().map((p) => ({
+        items: pagePosts.toReversed().map((p) => ({
           id: p.id,
           content: p.content,
           day: p.day,
