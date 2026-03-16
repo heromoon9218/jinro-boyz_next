@@ -4,11 +4,17 @@ const {
   mockFindUniqueUser,
   mockRoomFindUnique,
   mockPlayerFindUnique,
+  mockVillageFindUnique,
+  mockPlayerFindMany,
+  mockResultFindMany,
   mockPostFindMany,
 } = vi.hoisted(() => ({
   mockFindUniqueUser: vi.fn(),
   mockRoomFindUnique: vi.fn(),
   mockPlayerFindUnique: vi.fn(),
+  mockVillageFindUnique: vi.fn(),
+  mockPlayerFindMany: vi.fn(),
+  mockResultFindMany: vi.fn(),
   mockPostFindMany: vi.fn(),
 }));
 
@@ -27,8 +33,10 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/server/db", () => ({
   db: {
     user: { findUnique: mockFindUniqueUser },
+    village: { findUnique: mockVillageFindUnique },
     room: { findUnique: mockRoomFindUnique },
-    player: { findUnique: mockPlayerFindUnique },
+    player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
+    result: { findMany: mockResultFindMany },
     post: { findMany: mockPostFindMany },
   },
 }));
@@ -48,12 +56,30 @@ async function createAuthenticatedCaller() {
   return createCaller({
     db: {
       user: { findUnique: mockFindUniqueUser },
+      village: { findUnique: mockVillageFindUnique },
       room: { findUnique: mockRoomFindUnique },
-      player: { findUnique: mockPlayerFindUnique },
+      player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
+      result: { findMany: mockResultFindMany },
       post: { findMany: mockPostFindMany },
     } as never,
     supabase: {} as never,
     user: { id: "auth-user-1" },
+    headers: new Headers(),
+  });
+}
+
+function createPublicCaller() {
+  return createCaller({
+    db: {
+      user: { findUnique: mockFindUniqueUser },
+      village: { findUnique: mockVillageFindUnique },
+      room: { findUnique: mockRoomFindUnique },
+      player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
+      result: { findMany: mockResultFindMany },
+      post: { findMany: mockPostFindMany },
+    } as never,
+    supabase: {} as never,
+    user: null,
     headers: new Headers(),
   });
 }
@@ -208,5 +234,30 @@ describe("game.messages", () => {
       }),
     );
     expect(secondPage.items.map((post) => post.id)).toEqual(["post-1"]);
+  });
+});
+
+describe("game.results", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("ENDED なのに winner が null の村は不整合エラーを返す", async () => {
+    mockVillageFindUnique.mockResolvedValue({
+      status: "ENDED",
+      winner: null,
+      name: "テスト村",
+    });
+
+    const caller = createPublicCaller();
+    const err = await caller.game.results({ villageId: "village-1" }).catch((e) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "終了済みの村に勝敗情報がありません",
+    });
+    expect(mockPlayerFindMany).not.toHaveBeenCalled();
+    expect(mockResultFindMany).not.toHaveBeenCalled();
   });
 });

@@ -297,6 +297,15 @@ export const gameRouter = createTRPCRouter({
         });
       }
 
+      if (!village.winner) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "終了済みの村に勝敗情報がありません",
+        });
+      }
+
+      const winner = village.winner;
+
       const [players, results] = await Promise.all([
         ctx.db.player.findMany({
           where: { villageId: input.villageId },
@@ -317,7 +326,7 @@ export const gameRouter = createTRPCRouter({
 
       return {
         villageName: village.name,
-        winner: village.winner,
+        winner,
         players: players.map((p) => ({
           id: p.id,
           username: p.username,
