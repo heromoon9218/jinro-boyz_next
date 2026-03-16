@@ -76,7 +76,7 @@ export function GameResult({ villageId }: GameResultProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {data.results.map((r) => (
+            {data.results.map((r, index) => (
               <div key={r.day}>
                 <p className="text-sm font-semibold">Day {r.day}</p>
                 <div className="mt-1 space-y-1 text-sm text-muted-foreground">
@@ -93,7 +93,9 @@ export function GameResult({ villageId }: GameResultProps) {
                     <p>守護: {r.guardedPlayer.username}</p>
                   )}
                 </div>
-                {r.day < data.results.length && <Separator className="mt-3" />}
+                {index < data.results.length - 1 && (
+                  <Separator className="mt-3" />
+                )}
               </div>
             ))}
           </div>
