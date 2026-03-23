@@ -5,7 +5,6 @@
 set -euo pipefail
 
 PROJECT_ID="jinro-boyz_next"
-PREFIX="supabase_"
 SUFFIX="_${PROJECT_ID}"
 
 echo "=== Supabase 停止中 (${PROJECT_ID}) ==="
@@ -33,9 +32,6 @@ fi
 # 使われていたイメージのうち、どのコンテナにも参照されていないものを削除
 REMOVED=0
 for IMAGE in $CURRENT_IMAGES; do
-  REPO=$(echo "$IMAGE" | cut -d: -f1)
-  TAG=$(echo "$IMAGE" | cut -d: -f2)
-
   # このイメージを使っているコンテナがまだあればスキップ
   REFS=$(docker ps -a --filter "ancestor=${IMAGE}" --format "{{.ID}}" 2>/dev/null || true)
   if [ -n "$REFS" ]; then
