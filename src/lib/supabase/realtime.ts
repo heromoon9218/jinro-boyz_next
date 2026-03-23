@@ -1,22 +1,33 @@
 "use client";
 
-import type { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
+/** Singleton browser client shared across all realtime subscriptions. */
+let browserClient: ReturnType<typeof createClient> | null = null;
+
+function getBrowserClient() {
+  if (!browserClient) {
+    browserClient = createClient();
+  }
+  return browserClient;
+}
+
 interface Subscription {
-  supabase: SupabaseClient;
   channel: RealtimeChannel;
+  /** The client that owns the channel (for removeChannel cleanup). */
+  client: ReturnType<typeof createClient>;
 }
 
 /**
  * Subscribe to new posts in a room via Postgres Changes.
- * Returns the supabase client and channel for cleanup.
+ * Returns the channel for cleanup via `supabase.removeChannel(channel)`.
  */
 export function subscribeToRoomPosts(
   roomId: string,
   onNewPost: () => void,
 ): Subscription {
-  const supabase = createClient();
+  const supabase = getBrowserClient();
 
   const channel = supabase
     .channel(`room:${roomId}`)
@@ -34,18 +45,18 @@ export function subscribeToRoomPosts(
     )
     .subscribe();
 
-  return { supabase, channel };
+  return { channel, client: supabase };
 }
 
 /**
  * Subscribe to village game update broadcasts.
- * Returns the supabase client and channel for cleanup.
+ * Returns the channel and client for cleanup.
  */
 export function subscribeToVillageUpdates(
   villageId: string,
   onUpdate: () => void,
 ): Subscription {
-  const supabase = createClient();
+  const supabase = getBrowserClient();
 
   const channel = supabase
     .channel(`village:${villageId}`)
@@ -54,5 +65,5 @@ export function subscribeToVillageUpdates(
     })
     .subscribe();
 
-  return { supabase, channel };
+  return { channel, client: supabase };
 }

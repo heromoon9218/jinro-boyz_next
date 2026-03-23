@@ -16,14 +16,14 @@ export function useRealtimePosts(roomId: string | null) {
   useEffect(() => {
     if (!roomId) return;
 
-    const { supabase, channel } = subscribeToRoomPosts(roomId, () => {
+    const { client, channel } = subscribeToRoomPosts(roomId, () => {
       queryClient.invalidateQueries({
         queryKey: trpc.game.messages.queryKey(),
       });
     });
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [roomId, queryClient, trpc]);
 }

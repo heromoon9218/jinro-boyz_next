@@ -13,7 +13,9 @@ import {
 import { proceedDay } from "@/server/game/proceed-day";
 
 // Simple in-memory rate limiter for triggerProceed (per village, 5s cooldown).
-// Entries are cleaned up when expired or when the village is no longer IN_PLAY.
+// NOTE: In serverless environments (Vercel) this Map is per-worker-instance,
+// so concurrent Lambda invocations may bypass the cooldown. This is acceptable
+// because proceedDay itself uses SELECT ... FOR UPDATE to guarantee idempotency.
 const proceedCooldowns = new Map<string, number>();
 const PROCEED_COOLDOWN_MS = 5_000;
 const PROCEED_CLEANUP_INTERVAL_MS = 60_000;

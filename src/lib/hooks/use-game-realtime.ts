@@ -14,7 +14,7 @@ export function useGameRealtime(villageId: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const { supabase, channel } = subscribeToVillageUpdates(villageId, () => {
+    const { client, channel } = subscribeToVillageUpdates(villageId, () => {
       queryClient.invalidateQueries({
         queryKey: trpc.game.state.queryKey(),
       });
@@ -27,7 +27,7 @@ export function useGameRealtime(villageId: string) {
     });
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [villageId, queryClient, trpc]);
 }
