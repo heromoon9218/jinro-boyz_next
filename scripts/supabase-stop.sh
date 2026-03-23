@@ -26,7 +26,7 @@ echo "=== 旧イメージのクリーンアップ ==="
 STOPPED=$(docker ps -a --filter "name=${SUFFIX}" --filter "status=exited" --format "{{.ID}}" 2>/dev/null || true)
 if [ -n "$STOPPED" ]; then
   echo "停止済みコンテナを削除: $(echo "$STOPPED" | wc -l | tr -d ' ')個"
-  echo "$STOPPED" | xargs docker rm
+  echo "$STOPPED" | xargs docker rm || true
 fi
 
 # 使われていたイメージのうち、どのコンテナにも参照されていないものを削除
