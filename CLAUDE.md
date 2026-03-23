@@ -4,7 +4,7 @@
 
 **人狼BOYZ** — Next.js fullstack オンライン人狼ゲーム
 
-**Stack**: Next.js 16 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 6, tRPC v11, Zustand, Zod + React Hook Form
+**Stack**: Next.js 16 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 7, tRPC v11, Zustand, Zod + React Hook Form
 
 ## Commands
 
@@ -39,11 +39,11 @@ npm run test:e2e
 Docker Desktop 起動済みの前提。
 
 ```bash
-# 起動（Auth, Postgres, Storage 等がローカルで立ち上がる）
-npx supabase start
+# 起動
+npm run supabase:start
 
-# 停止
-npx supabase stop
+# 停止（旧イメージの自動クリーンアップ付き）
+npm run supabase:stop
 
 # ステータス確認（接続情報を表示）
 npx supabase status

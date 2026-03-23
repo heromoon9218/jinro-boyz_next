@@ -367,7 +367,6 @@ export const gameRouter = createTRPCRouter({
       validateTarget(
         input.targetPlayerId,
         myPlayer.id,
-        input.villageId,
         village.players,
       );
 
@@ -449,7 +448,6 @@ export const gameRouter = createTRPCRouter({
       validateTarget(
         input.targetPlayerId,
         myPlayer.id,
-        input.villageId,
         village.players,
       );
 
@@ -488,7 +486,6 @@ export const gameRouter = createTRPCRouter({
       validateTarget(
         input.targetPlayerId,
         myPlayer.id,
-        input.villageId,
         village.players,
       );
 
@@ -667,7 +664,6 @@ async function resolveGameContext(ctx: GameContext, villageId: string) {
 function validateTarget(
   targetPlayerId: string,
   myPlayerId: string,
-  villageId: string,
   players: { id: string; status: string; userId: string }[],
 ) {
   if (targetPlayerId === myPlayerId) {
