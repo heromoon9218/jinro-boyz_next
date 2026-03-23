@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "./scripts/supabase-stop.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
