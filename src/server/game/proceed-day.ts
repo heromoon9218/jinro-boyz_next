@@ -209,7 +209,12 @@ export async function proceedDay(villageId: string): Promise<void> {
       }
 
       const guardTargetId = bodyguardRecord?.guardTargetId ?? null;
-      const killedId = resolveAttack({ attackTargetId, guardTargetId });
+      const rawKilledId = resolveAttack({ attackTargetId, guardTargetId });
+      // 処刑済みプレイヤーへの襲撃は無効（すでに死亡している）
+      const killedId =
+        rawKilledId && aliveAfterLynchIds.has(rawKilledId)
+          ? rawKilledId
+          : null;
 
       if (killedId) {
         const killed = allPlayers.find((p) => p.id === killedId);

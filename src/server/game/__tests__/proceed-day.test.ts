@@ -253,6 +253,40 @@ describe("proceedDay", () => {
     expect(playerState.find((player) => player.id === "villager-b")?.status).toBe("DEAD");
   });
 
+  test("処刑されたプレイヤーへの襲撃は無効になる", async () => {
+    const players = [
+      createPlayer("wolf", "WEREWOLF"),
+      createPlayer("villager-a", "VILLAGER"),
+      createPlayer("villager-b", "VILLAGER"),
+      createPlayer("villager-c", "VILLAGER"),
+      createPlayer("villager-d", "VILLAGER"),
+    ];
+    const records = [
+      createRecord(players[0], players, 2, {
+        voteTargetId: "villager-a",
+        attackTargetId: "villager-a",
+        updatedAt: new Date("2026-03-15T00:00:05.000Z"),
+      }),
+      createRecord(players[1], players, 2, { voteTargetId: "villager-a" }),
+      createRecord(players[2], players, 2, { voteTargetId: "villager-a" }),
+      createRecord(players[3], players, 2, { voteTargetId: "villager-b" }),
+      createRecord(players[4], players, 2, { voteTargetId: "villager-b" }),
+    ];
+
+    const { resultState, playerState } = setupProceedDayScenario(players, records);
+
+    await proceedDay("village-1");
+
+    // villager-a は処刑で死亡
+    expect(resultState.votedPlayerId).toBe("villager-a");
+    // 襲撃対象が処刑済みのため襲撃は無効
+    expect(resultState.attackedPlayerId).toBeNull();
+    // 処刑以外での死者はいない
+    const deadPlayers = playerState.filter((p) => p.status === "DEAD");
+    expect(deadPlayers).toHaveLength(1);
+    expect(deadPlayers[0].id).toBe("villager-a");
+  });
+
   test("村が存在しないときはブロードキャストしない", async () => {
     const players = [createPlayer("p1", "VILLAGER")];
     const { tx } = setupProceedDayScenario(players, []);
