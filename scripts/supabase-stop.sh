@@ -47,11 +47,10 @@ for IMAGE in $CURRENT_IMAGES; do
 done
 
 # dangling イメージも掃除
-DANGLING=$(docker images --filter "dangling=true" --filter "reference=public.ecr.aws/supabase/*" -q 2>/dev/null || true)
-if [ -n "$DANGLING" ]; then
-  echo "dangling イメージを削除"
-  echo "$DANGLING" | xargs docker rmi 2>/dev/null || true
-fi
+# dangling は Repo/Tag が <none> のため reference フィルタと AND 併用すると一致せず常に空になる。
+# Supabase 停止直後の未使用レイヤー回収のため、未使用 dangling を一括 prune（デフォルトは dangling のみ）。
+echo "dangling イメージを prune"
+docker image prune -f 2>/dev/null || true
 
 echo ""
 echo "=== 完了: ${REMOVED}個のイメージを削除しました ==="
