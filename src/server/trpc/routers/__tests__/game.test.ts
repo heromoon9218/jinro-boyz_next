@@ -9,6 +9,8 @@ const {
   mockResultFindMany,
   mockPostFindMany,
   mockRecordFindUnique,
+  mockRecordUpdate,
+  mockPostCreate,
 } = vi.hoisted(() => ({
   mockFindUniqueUser: vi.fn(),
   mockRoomFindUnique: vi.fn(),
@@ -18,6 +20,8 @@ const {
   mockResultFindMany: vi.fn(),
   mockPostFindMany: vi.fn(),
   mockRecordFindUnique: vi.fn(),
+  mockRecordUpdate: vi.fn(),
+  mockPostCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -39,8 +43,8 @@ vi.mock("@/server/db", () => ({
     room: { findUnique: mockRoomFindUnique },
     player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
     result: { findMany: mockResultFindMany },
-    post: { findMany: mockPostFindMany },
-    record: { findUnique: mockRecordFindUnique },
+    post: { findMany: mockPostFindMany, create: mockPostCreate },
+    record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
   },
 }));
 
@@ -63,8 +67,8 @@ async function createAuthenticatedCaller() {
       room: { findUnique: mockRoomFindUnique },
       player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
       result: { findMany: mockResultFindMany },
-      post: { findMany: mockPostFindMany },
-      record: { findUnique: mockRecordFindUnique },
+      post: { findMany: mockPostFindMany, create: mockPostCreate },
+      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
     } as never,
     supabase: {} as never,
     user: { id: "auth-user-1" },
@@ -80,8 +84,8 @@ function createPublicCaller() {
       room: { findUnique: mockRoomFindUnique },
       player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
       result: { findMany: mockResultFindMany },
-      post: { findMany: mockPostFindMany },
-      record: { findUnique: mockRecordFindUnique },
+      post: { findMany: mockPostFindMany, create: mockPostCreate },
+      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
     } as never,
     supabase: {} as never,
     user: null,
@@ -96,6 +100,7 @@ describe("game.messages", () => {
       id: "room-main",
       type: "MAIN",
       villageId: "village-1",
+      village: { status: "IN_PLAY" },
     });
     mockPlayerFindUnique.mockResolvedValue({
       id: "player-1",
@@ -339,5 +344,624 @@ describe("game.state", () => {
         isWerewolf: true,
       },
     ]);
+  });
+});
+
+// ============================================================
+// Shared village/player setup helpers for action & access control tests
+// ============================================================
+
+const IN_PLAY_VILLAGE = {
+  status: "IN_PLAY" as const,
+  day: 2,
+  players: [
+    { id: "player-1", username: "user1", role: "VILLAGER" as const, status: "ALIVE" as const, userId: "db-user-1" },
+    { id: "player-2", username: "user2", role: "WEREWOLF" as const, status: "ALIVE" as const, userId: "other-user" },
+    { id: "player-3", username: "user3", role: "FORTUNE_TELLER" as const, status: "ALIVE" as const, userId: "seer-user" },
+    { id: "player-4", username: "user4", role: "BODYGUARD" as const, status: "ALIVE" as const, userId: "guard-user" },
+    { id: "player-5", username: "user5", role: "VILLAGER" as const, status: "DEAD" as const, userId: "dead-user" },
+  ],
+};
+
+function mockVillageForActions(overrides: Partial<typeof IN_PLAY_VILLAGE> = {}) {
+  mockVillageFindUnique.mockResolvedValue({ ...IN_PLAY_VILLAGE, ...overrides });
+}
+
+// ============================================================
+// Action mutations
+// ============================================================
+
+describe("game.vote", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRecordUpdate.mockResolvedValue({ id: "record-1" });
+  });
+
+  test("生存プレイヤーが他の生存プレイヤーに投票できる", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.vote({
+      villageId: "village-1",
+      targetPlayerId: "player-2",
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          playerId_villageId_day: {
+            playerId: "player-1",
+            villageId: "village-1",
+            day: 2,
+          },
+        },
+        data: { voteTargetId: "player-2" },
+      }),
+    );
+  });
+
+  test("自分自身には投票できない", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .vote({ villageId: "village-1", targetPlayerId: "player-1" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "BAD_REQUEST", message: "自分自身を対象にできません" });
+    expect(mockRecordUpdate).not.toHaveBeenCalled();
+  });
+
+  test("死亡プレイヤーには投票できない", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .vote({ villageId: "village-1", targetPlayerId: "player-5" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "BAD_REQUEST", message: "無効な対象です" });
+  });
+
+  test("死亡者は投票できない", async () => {
+    mockVillageForActions({
+      players: IN_PLAY_VILLAGE.players.map((p) =>
+        p.userId === "db-user-1" ? { ...p, status: "DEAD" as const } : p,
+      ),
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .vote({ villageId: "village-1", targetPlayerId: "player-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "死亡者はアクションを実行できません" });
+  });
+
+  test("ゲームが進行中でないと投票できない", async () => {
+    mockVillageForActions({ status: "ENDED" as never });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .vote({ villageId: "village-1", targetPlayerId: "player-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "BAD_REQUEST", message: "ゲームが進行中ではありません" });
+  });
+});
+
+describe("game.attack", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRecordUpdate.mockResolvedValue({ id: "record-1" });
+  });
+
+  test("人狼が非人狼の生存プレイヤーを襲撃できる", async () => {
+    // player-2 (WEREWOLF, userId: other-user) がアクション実行者
+    mockFindUniqueUser.mockResolvedValue({ id: "other-user", authId: "auth-user-1", username: "user2" });
+    mockVillageForActions({
+      players: IN_PLAY_VILLAGE.players.map((p) =>
+        p.userId === "other-user" ? { ...p, userId: "db-user-1" } :
+        p.userId === "db-user-1" ? { ...p, userId: "other-user" } : p,
+      ),
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.attack({
+      villageId: "village-1",
+      targetPlayerId: "player-3",
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { attackTargetId: "player-3" },
+      }),
+    );
+  });
+
+  test("村人は襲撃できない", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .attack({ villageId: "village-1", targetPlayerId: "player-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "人狼のみが襲撃できます" });
+  });
+
+  test("人狼は別の人狼を襲撃できない", async () => {
+    // 人狼が2人いるシナリオ
+    const players = [
+      { id: "wolf-1", username: "wolf1", role: "WEREWOLF" as const, status: "ALIVE" as const, userId: "db-user-1" },
+      { id: "wolf-2", username: "wolf2", role: "WEREWOLF" as const, status: "ALIVE" as const, userId: "other-wolf" },
+      { id: "villager-1", username: "v1", role: "VILLAGER" as const, status: "ALIVE" as const, userId: "v-user" },
+    ];
+    mockVillageForActions({ players });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .attack({ villageId: "village-1", targetPlayerId: "wolf-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "BAD_REQUEST", message: "無効な襲撃対象です" });
+  });
+});
+
+describe("game.divine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRecordUpdate.mockResolvedValue({ id: "record-1" });
+  });
+
+  test("占い師が他プレイヤーを占える", async () => {
+    // player-3 (FORTUNE_TELLER) をログインユーザーにする
+    mockVillageForActions({
+      players: IN_PLAY_VILLAGE.players.map((p) =>
+        p.userId === "seer-user" ? { ...p, userId: "db-user-1" } :
+        p.userId === "db-user-1" ? { ...p, userId: "seer-user" } : p,
+      ),
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.divine({
+      villageId: "village-1",
+      targetPlayerId: "player-2",
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { divineTargetId: "player-2" },
+      }),
+    );
+  });
+
+  test("占い師以外は占えない", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .divine({ villageId: "village-1", targetPlayerId: "player-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "占い師のみが占えます" });
+  });
+});
+
+describe("game.guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRecordUpdate.mockResolvedValue({ id: "record-1" });
+  });
+
+  test("騎士が他プレイヤーを守護できる", async () => {
+    // player-4 (BODYGUARD) をログインユーザーにする
+    mockVillageForActions({
+      players: IN_PLAY_VILLAGE.players.map((p) =>
+        p.userId === "guard-user" ? { ...p, userId: "db-user-1" } :
+        p.userId === "db-user-1" ? { ...p, userId: "guard-user" } : p,
+      ),
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.guard({
+      villageId: "village-1",
+      targetPlayerId: "player-2",
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { guardTargetId: "player-2" },
+      }),
+    );
+  });
+
+  test("騎士以外は守護できない", async () => {
+    mockVillageForActions();
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .guard({ villageId: "village-1", targetPlayerId: "player-2" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "騎士のみが守護できます" });
+  });
+});
+
+// ============================================================
+// Room access control — messages (read)
+// ============================================================
+
+describe("game.messages access control", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPostFindMany.mockResolvedValue([]);
+  });
+
+  // --- MAIN ルーム ---
+
+  test("非参加者でも MAIN ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-main",
+      type: "MAIN",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    const caller = createPublicCaller();
+
+    const result = await caller.game.messages({ roomId: "room-main", limit: 20 });
+
+    expect(result.items).toEqual([]);
+    expect(mockPostFindMany).toHaveBeenCalled();
+  });
+
+  test("未ログインユーザーはゲーム中の MAIN ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-main",
+      type: "MAIN",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    const caller = createPublicCaller();
+
+    const result = await caller.game.messages({ roomId: "room-main", limit: 20 });
+
+    expect(result.items).toEqual([]);
+    expect(mockPostFindMany).toHaveBeenCalled();
+  });
+
+  // --- WOLF ルーム (ゲーム中) ---
+
+  test("村人はゲーム中の WOLF ルームのメッセージを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-wolf",
+      type: "WOLF",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue({
+      id: "player-1",
+      role: "VILLAGER",
+      status: "ALIVE",
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-wolf", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "人狼ルームにアクセスできません" });
+    expect(mockPostFindMany).not.toHaveBeenCalled();
+  });
+
+  test("人狼はゲーム中の WOLF ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-wolf",
+      type: "WOLF",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue({
+      id: "player-2",
+      role: "WEREWOLF",
+      status: "ALIVE",
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.messages({ roomId: "room-wolf", limit: 20 });
+
+    expect(result.items).toEqual([]);
+    expect(mockPostFindMany).toHaveBeenCalled();
+  });
+
+  test("未ログインユーザーはゲーム中の WOLF ルームを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-wolf",
+      type: "WOLF",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    const caller = createPublicCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-wolf", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "ログインが必要です" });
+  });
+
+  test("非参加者はゲーム中の WOLF ルームを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-wolf",
+      type: "WOLF",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue(null);
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-wolf", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "人狼ルームにアクセスできません" });
+  });
+
+  // --- DEAD ルーム (ゲーム中) ---
+
+  test("生存者はゲーム中の DEAD ルームのメッセージを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-dead",
+      type: "DEAD",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue({
+      id: "player-1",
+      role: "VILLAGER",
+      status: "ALIVE",
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-dead", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "霊界ルームにアクセスできません" });
+  });
+
+  test("死亡者はゲーム中の DEAD ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-dead",
+      type: "DEAD",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue({
+      id: "player-5",
+      role: "VILLAGER",
+      status: "DEAD",
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.messages({ roomId: "room-dead", limit: 20 });
+
+    expect(result.items).toEqual([]);
+  });
+
+  test("未ログインユーザーはゲーム中の DEAD ルームを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-dead",
+      type: "DEAD",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    const caller = createPublicCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-dead", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "ログインが必要です" });
+  });
+
+  test("非参加者はゲーム中の DEAD ルームを読めない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-dead",
+      type: "DEAD",
+      villageId: "village-1",
+      village: { status: "IN_PLAY" },
+    });
+    mockFindUniqueUser.mockResolvedValue({ id: "db-user-1" });
+    mockPlayerFindUnique.mockResolvedValue(null);
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .messages({ roomId: "room-dead", limit: 20 })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "霊界ルームにアクセスできません" });
+  });
+
+  // --- ゲーム終了後 ---
+
+  test("ゲーム終了後は誰でも WOLF ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-wolf",
+      type: "WOLF",
+      villageId: "village-1",
+      village: { status: "ENDED" },
+    });
+    const caller = createPublicCaller();
+
+    const result = await caller.game.messages({ roomId: "room-wolf", limit: 20 });
+
+    expect(result.items).toEqual([]);
+    expect(mockPostFindMany).toHaveBeenCalled();
+  });
+
+  test("ゲーム終了後は誰でも DEAD ルームのメッセージを読める", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-dead",
+      type: "DEAD",
+      villageId: "village-1",
+      village: { status: "ENDED" },
+    });
+    const caller = createPublicCaller();
+
+    const result = await caller.game.messages({ roomId: "room-dead", limit: 20 });
+
+    expect(result.items).toEqual([]);
+    expect(mockPostFindMany).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// Room access control — sendMessage (write)
+// ============================================================
+
+describe("game.sendMessage access control", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPostCreate.mockResolvedValue({ id: "post-new" });
+  });
+
+  function mockSendMessageContext(
+    roomType: "MAIN" | "WOLF" | "DEAD",
+    playerRole: string,
+    playerStatus: "ALIVE" | "DEAD",
+  ) {
+    mockRoomFindUnique.mockResolvedValue({
+      id: `room-${roomType.toLowerCase()}`,
+      type: roomType,
+      villageId: "village-1",
+    });
+    mockVillageFindUnique.mockResolvedValue({
+      status: "IN_PLAY",
+      day: 2,
+    });
+    mockPlayerFindUnique.mockResolvedValue({
+      id: "player-1",
+      role: playerRole,
+      status: playerStatus,
+    });
+  }
+
+  test("生存者は MAIN ルームに投稿できる", async () => {
+    mockSendMessageContext("MAIN", "VILLAGER", "ALIVE");
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.sendMessage({
+      roomId: "room-main",
+      content: "こんにちは",
+    });
+
+    expect(result).toEqual({ id: "post-new" });
+    expect(mockPostCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: "こんにちは",
+          owner: "PLAYER",
+          roomId: "room-main",
+        }),
+      }),
+    );
+  });
+
+  test("死亡者は MAIN ルームに投稿できない", async () => {
+    mockSendMessageContext("MAIN", "VILLAGER", "DEAD");
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .sendMessage({ roomId: "room-main", content: "test" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "生存者のみがメインルームに投稿できます" });
+    expect(mockPostCreate).not.toHaveBeenCalled();
+  });
+
+  test("生存中の人狼は WOLF ルームに投稿できる", async () => {
+    mockSendMessageContext("WOLF", "WEREWOLF", "ALIVE");
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.sendMessage({
+      roomId: "room-wolf",
+      content: "誰を襲う？",
+    });
+
+    expect(result).toEqual({ id: "post-new" });
+  });
+
+  test("村人は WOLF ルームに投稿できない", async () => {
+    mockSendMessageContext("WOLF", "VILLAGER", "ALIVE");
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .sendMessage({ roomId: "room-wolf", content: "test" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "生存中の人狼のみが人狼ルームに投稿できます" });
+  });
+
+  test("死亡した人狼は WOLF ルームに投稿できない", async () => {
+    mockSendMessageContext("WOLF", "WEREWOLF", "DEAD");
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .sendMessage({ roomId: "room-wolf", content: "test" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "生存中の人狼のみが人狼ルームに投稿できます" });
+  });
+
+  test("死亡者は DEAD ルームに投稿できる", async () => {
+    mockSendMessageContext("DEAD", "VILLAGER", "DEAD");
+    const caller = await createAuthenticatedCaller();
+
+    const result = await caller.game.sendMessage({
+      roomId: "room-dead",
+      content: "あの世から",
+    });
+
+    expect(result).toEqual({ id: "post-new" });
+  });
+
+  test("生存者は DEAD ルームに投稿できない", async () => {
+    mockSendMessageContext("DEAD", "VILLAGER", "ALIVE");
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .sendMessage({ roomId: "room-dead", content: "test" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "FORBIDDEN", message: "死亡者のみが霊界ルームに投稿できます" });
+  });
+
+  test("ゲーム中でないと投稿できない", async () => {
+    mockRoomFindUnique.mockResolvedValue({
+      id: "room-main",
+      type: "MAIN",
+      villageId: "village-1",
+    });
+    mockVillageFindUnique.mockResolvedValue({
+      status: "ENDED",
+      day: 5,
+    });
+    const caller = await createAuthenticatedCaller();
+
+    const err = await caller.game
+      .sendMessage({ roomId: "room-main", content: "test" })
+      .catch((e) => e);
+
+    expect(err).toMatchObject({ code: "BAD_REQUEST", message: "ゲーム中のみメッセージを送信できます" });
   });
 });

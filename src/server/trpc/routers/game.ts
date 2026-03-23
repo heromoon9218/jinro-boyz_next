@@ -196,19 +196,21 @@ export const gameRouter = createTRPCRouter({
 
   /**
    * Get paginated messages for a specific room.
-   * Access control: MAIN=all participants, WOLF=werewolves only, DEAD=dead only.
+   * Access control (jinro_rails 準拠):
+   *   MAIN  — 誰でも閲覧可能（非参加者・未ログインも可）
+   *   WOLF  — ゲーム中は人狼のみ、ゲーム終了後は全員
+   *   DEAD  — ゲーム中は死亡者のみ、ゲーム終了後は全員
    */
-  messages: protectedProcedure
+  messages: publicProcedure
     .input(messagesSchema)
     .query(async ({ ctx, input }) => {
-      const { dbUser } = ctx;
-
       const room = await ctx.db.room.findUnique({
         where: { id: input.roomId },
         select: {
           id: true,
           type: true,
           villageId: true,
+          village: { select: { status: true } },
         },
       });
 
@@ -216,32 +218,44 @@ export const gameRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "ルームが見つかりません" });
       }
 
-      const myPlayer = await ctx.db.player.findUnique({
-        where: {
-          userId_villageId: { userId: dbUser.id, villageId: room.villageId },
-        },
-        select: { id: true, role: true, status: true },
-      });
+      const isEnded = room.village.status === "ENDED" || room.village.status === "RUINED";
 
-      if (!myPlayer) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "この村に参加していません",
-        });
-      }
+      // WOLF / DEAD rooms need access control during gameplay
+      if (!isEnded && (room.type === "WOLF" || room.type === "DEAD")) {
+        const userId = ctx.user?.id;
+        if (!userId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "ログインが必要です",
+          });
+        }
 
-      // Access control for reading
-      if (room.type === "WOLF" && myPlayer.role !== "WEREWOLF") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "人狼ルームにアクセスできません",
+        const dbUser = await ctx.db.user.findUnique({
+          where: { authId: userId },
+          select: { id: true },
         });
-      }
-      if (room.type === "DEAD" && myPlayer.status !== "DEAD") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "霊界ルームにアクセスできません",
-        });
+
+        const myPlayer = dbUser
+          ? await ctx.db.player.findUnique({
+              where: {
+                userId_villageId: { userId: dbUser.id, villageId: room.villageId },
+              },
+              select: { id: true, role: true, status: true },
+            })
+          : null;
+
+        if (room.type === "WOLF" && myPlayer?.role !== "WEREWOLF") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "人狼ルームにアクセスできません",
+          });
+        }
+        if (room.type === "DEAD" && myPlayer?.status !== "DEAD") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "霊界ルームにアクセスできません",
+          });
+        }
       }
 
       const posts = await ctx.db.post.findMany({
