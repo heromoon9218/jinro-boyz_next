@@ -8,6 +8,7 @@ const {
   mockPlayerFindMany,
   mockResultFindMany,
   mockPostFindMany,
+  mockRecordFindUnique,
 } = vi.hoisted(() => ({
   mockFindUniqueUser: vi.fn(),
   mockRoomFindUnique: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockPlayerFindMany: vi.fn(),
   mockResultFindMany: vi.fn(),
   mockPostFindMany: vi.fn(),
+  mockRecordFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -38,6 +40,7 @@ vi.mock("@/server/db", () => ({
     player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
     result: { findMany: mockResultFindMany },
     post: { findMany: mockPostFindMany },
+    record: { findUnique: mockRecordFindUnique },
   },
 }));
 
@@ -61,6 +64,7 @@ async function createAuthenticatedCaller() {
       player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
       result: { findMany: mockResultFindMany },
       post: { findMany: mockPostFindMany },
+      record: { findUnique: mockRecordFindUnique },
     } as never,
     supabase: {} as never,
     user: { id: "auth-user-1" },
@@ -77,6 +81,7 @@ function createPublicCaller() {
       player: { findUnique: mockPlayerFindUnique, findMany: mockPlayerFindMany },
       result: { findMany: mockResultFindMany },
       post: { findMany: mockPostFindMany },
+      record: { findUnique: mockRecordFindUnique },
     } as never,
     supabase: {} as never,
     user: null,
@@ -259,5 +264,80 @@ describe("game.results", () => {
     });
     expect(mockPlayerFindMany).not.toHaveBeenCalled();
     expect(mockResultFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("game.state", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindUniqueUser.mockResolvedValue({
+      id: "db-user-1",
+      authId: "auth-user-1",
+      username: "user1",
+    });
+    mockRecordFindUnique.mockResolvedValue(null);
+  });
+
+  test("占い結果は Result.divinedPlayerId のみから構築する（処刑で無効化された日は含めない）", async () => {
+    mockVillageFindUnique.mockResolvedValue({
+      id: "village-1",
+      name: "テスト村",
+      day: 3,
+      status: "IN_PLAY",
+      winner: null,
+      nextUpdateTime: new Date(),
+      showVoteTarget: true,
+      discussionTime: 300,
+      rooms: [{ id: "room-main", type: "MAIN" }],
+      players: [
+        {
+          id: "seer-1",
+          username: "seer",
+          role: "FORTUNE_TELLER",
+          status: "DEAD",
+          userId: "db-user-1",
+        },
+        {
+          id: "wolf-1",
+          username: "wolf",
+          role: "WEREWOLF",
+          status: "ALIVE",
+          userId: "other-user",
+        },
+      ],
+    });
+
+    // Day 2 は proceedDay で占い師が処刑され divinedPlayerId が null の想定 → 行自体がクエリに乗らない
+    mockResultFindMany.mockResolvedValue([
+      {
+        day: 1,
+        divinedPlayer: {
+          id: "wolf-1",
+          username: "wolf",
+          role: "WEREWOLF",
+        },
+      },
+    ]);
+
+    const caller = await createAuthenticatedCaller();
+    const state = await caller.game.state({ villageId: "village-1" });
+
+    expect(mockResultFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          villageId: "village-1",
+          day: { lt: 3 },
+          divinedPlayerId: { not: null },
+        }),
+      }),
+    );
+    expect(state.divineResults).toEqual([
+      {
+        day: 1,
+        targetId: "wolf-1",
+        targetName: "wolf",
+        isWerewolf: true,
+      },
+    ]);
   });
 });
