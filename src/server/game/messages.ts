@@ -22,7 +22,7 @@ export function buildNoonMessage(params: {
   if (params.lynchTargetName) {
     lines.push(`${params.lynchTargetName} が処刑されました。`);
   } else {
-    lines.push("同数票のため、処刑は行われませんでした。");
+    lines.push("処刑は行われませんでした。");
   }
 
   return lines.join("\n");
