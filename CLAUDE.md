@@ -85,6 +85,10 @@ npx supabase status
 - `components.json` — shadcn/ui + TailwindCSS設定
 - `scripts/sync_user_email_on_auth_change.sql` — Supabase Auth トリガー（初回のみ）
 
+## Reference Implementation
+
+`~/GitPro/jinro_rails` — Rails 版人狼BOYZ。ゲームルールや権限仕様の正とすべきリファレンス。仕様に迷ったらこちらを確認。
+
 ## Domain Model
 
 | Entity | Role |
@@ -99,3 +103,17 @@ npx supabase status
 **Roles**: VILLAGER (村人), WEREWOLF (人狼), FORTUNE_TELLER (占い師), PSYCHIC (霊媒師), BODYGUARD (騎士), MADMAN (狂人)
 
 **Victory**: Humans win when all werewolves eliminated; werewolves win when `living_wolves ≥ living_humans`.
+
+### Game Rules
+
+- **投票同数**: ランダムで1人を処刑（処刑なしにはならない）。投票なし時は生存者全員からランダム
+- **Day 1**: 人狼の襲撃はスキップ
+- **処刑後の夜アクション**: 処刑されたプレイヤーの夜アクション（占い・守護・襲撃）は無効
+
+### Room Access Control
+
+| Room | ゲーム中（読み取り） | ゲーム中（書き込み） | ゲーム終了後 |
+|------|---------------------|---------------------|-------------|
+| MAIN | 誰でも（未ログイン含む） | 生存者のみ | 誰でも閲覧可 |
+| WOLF | 人狼のみ | 生存中の人狼のみ | 誰でも閲覧可 |
+| DEAD | 死亡者のみ | 死亡者のみ | 誰でも閲覧可 |

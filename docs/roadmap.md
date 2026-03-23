@@ -37,7 +37,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 
 ---
 
-## Phase 2: 村一覧 + 村作成
+## Phase 2: 村一覧 + 村作成 ✅ 完了
 
 村の閲覧・作成・参加・退出。ゲーム開始前の準備フェーズ。
 
@@ -69,61 +69,70 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 
 ---
 
-## Phase 3: ゲーム画面 + ゲーム進行
+## Phase 3: ゲーム画面 + ゲーム進行 🔄 PR #15 レビュー中
 
 リアルタイムチャットとゲーム進行ロジック。人狼ゲームの核心部分。
 
 ### 機能
 - **ゲームルーム** (`/villages/[villageId]/game`)
-  - チャットエリア（メインルーム / 人狼ルーム / 死者ルーム の切り替え）
-  - メッセージ送信（リアルタイム）
-  - システムメッセージ表示（ゲーム進行の通知）
-  - プレイヤー一覧（生存 / 死亡 状態表示）
-  - 残り時間カウントダウン
-- **アクションエリア**（役職に応じた操作UI）
+  - チャットエリア（MAIN / WOLF / DEAD タブ切り替え、無限スクロール）
+  - メッセージ送信（リアルタイム、Zod バリデーション付き）
+  - システムメッセージ表示（投票結果、襲撃結果、生存者一覧、ゲーム終了＆役職公開）
+  - プレイヤーパネル（生存/死亡表示、役職バッジ、クリックで対象選択）
+  - カウントダウンタイマー
+- **アクションパネル**（役職に応じた操作UI）
   - 投票（昼：全プレイヤー）
   - 襲撃先選択（夜：人狼のみ）
-  - 占い対象選択（夜：占い師のみ）
+  - 占い対象選択（夜：占い師のみ）＋ 占い結果表示
   - 護衛対象選択（夜：騎士のみ）
-- **ゲーム進行ロジック**
-  - 昼フェーズ: 議論 → 投票 → 処刑
-  - 夜フェーズ: 人狼襲撃 + 占い + 護衛 → 結果判定
+  - 霊媒結果表示（霊媒師のみ）
+- **ゲーム進行ロジック** (`proceedDay` トランザクション)
+  - 昼フェーズ: 議論 → 投票 → 処刑（同数時ランダム）
+  - 夜フェーズ: 占い → 護衛 → 襲撃 → 結果判定
+  - 処刑済みプレイヤーの夜アクション無効化
   - 勝利判定（人狼全滅 → 人間勝利 / 人狼≧人間 → 人狼勝利）
-  - エピローグ: 全ロール開示
-- **自動進行** (`/api/cron/proceed-villages`)
-  - Vercel Cron で定期実行
-  - `discussion_time` 経過後に自動でフェーズ切り替え
-
-### リアルタイム通信
-- Supabase Realtime（Postgres Changes or Broadcast）でメッセージ配信
-- ページリロード指示（ゲーム状態変更時）
-
-### tRPC ルーター
-- `room.posts` — メッセージ取得
-- `room.send` — メッセージ送信
-- `record.vote` — 投票
-- `record.attack` — 襲撃
-- `record.divine` — 占い
-- `record.guard` — 護衛
-- `village.remainingTime` — 残り時間取得
-- `village.divineResult` — 占い結果取得
-- `village.voteResult` — 霊媒結果取得
-
----
-
-## Phase 4: ゲーム結果 + 戦績
-
-ゲーム終了後の結果表示とユーザー戦績。
-
-### 機能
+  - Day 1 は襲撃スキップ
 - **ゲーム結果画面**
   - 勝利陣営の表示
   - 全プレイヤーの役職開示
-  - 日ごとの投票・襲撃・占い・護衛の結果一覧
+  - 日ごとの投票・襲撃結果一覧
+- **自動進行** (`/api/cron/proceed-villages`)
+  - Vercel Cron で定期実行
+  - クライアント補助トリガー（`triggerProceed`、インメモリ5秒クールダウン）
+  - `discussion_time` 経過後に自動でフェーズ切り替え
+
+### リアルタイム通信
+- Supabase Realtime Postgres Changes で `posts` テーブル監視（チャット即時反映）
+- Supabase Realtime Broadcast（REST `httpSend`）でゲーム状態変更通知
+- `useRealtimePosts` / `useGameRealtime` カスタムフック
+
+### tRPC ルーター (`game`)
+- `game.state` — ゲーム状態取得（プレイヤー、役職、占い結果、霊媒結果等）
+- `game.messages` — チャット取得（ルーム別、ページネーション、アクセス制御付き）
+- `game.results` — ゲーム結果取得
+- `game.vote` — 投票
+- `game.attack` — 襲撃
+- `game.divine` — 占い
+- `game.guard` — 護衛
+- `game.sendMessage` — メッセージ送信
+- `game.triggerProceed` — 日進行トリガー
+
+---
+
+## Phase 4: 戦績 + ゲーム終了後の閲覧
+
+ユーザー戦績とゲーム終了後のルーム公開。
+
+> **Note**: ゲーム結果画面（勝利陣営表示、役職開示、日別記録）は Phase 3 で実装済み。
+
+### 機能
 - **プロフィール戦績** (`/profile`)
   - 参加ゲーム数（役職別）
   - 勝利数（役職別）
   - 勝率
+- **終了済み村の閲覧**
+  - WOLF / DEAD ルームの全公開（Phase 3 でアクセス制御は実装済み）
+  - 村一覧での終了済み村の結果サマリー表示
 
 ### tRPC ルーター
 - `user.stats` — ユーザーの戦績統計
@@ -182,10 +191,10 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 | ゲーム開始 (VillagesController#start) | 2 | tRPC village.start |
 | 廃村 (VillagesController#ruin) | 2 | tRPC village.ruin |
 | キック (KicksController) | 2 | tRPC village.kick |
-| チャット (RoomsController + ActionCable) | 3 | Supabase Realtime + tRPC |
-| 投票/襲撃/占い/護衛 (RecordsController) | 3 | tRPC record ルーター |
-| ゲーム自動進行 (ProceedVillageJob) | 3 | Vercel Cron + API route |
-| ゲーム結果 | 4 | Server Component |
+| チャット (RoomsController + ActionCable) | 3 | Supabase Realtime + tRPC game ルーター |
+| 投票/襲撃/占い/護衛 (RecordsController) | 3 | tRPC game ルーター (vote/attack/divine/guard) |
+| ゲーム自動進行 (ProceedVillageJob) | 3 | Vercel Cron + triggerProceed + API route |
+| ゲーム結果 | 3 | GameResult コンポーネント (game.results) |
 | ユーザー戦績 | 4 | tRPC user.stats |
 | アバター (ActiveStorage) | 5 | Supabase Storage |
 | 通知 (NotificationsController) | 5 | tRPC + admin UI |
