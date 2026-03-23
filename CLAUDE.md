@@ -4,7 +4,7 @@
 
 **人狼BOYZ** — Next.js fullstack オンライン人狼ゲーム
 
-**Stack**: Next.js 16 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 6, tRPC v11, Zustand, Zod + React Hook Form
+**Stack**: Next.js 16 (App Router), TypeScript, TailwindCSS 4 + shadcn/ui, Supabase (Auth + Postgres + Realtime), Prisma 7, tRPC v11, Zustand, Zod + React Hook Form
 
 ## Commands
 
