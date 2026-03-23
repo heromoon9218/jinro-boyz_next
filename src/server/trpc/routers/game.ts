@@ -12,6 +12,24 @@ import {
 } from "@/lib/validators/game";
 import { proceedDay } from "@/server/game/proceed-day";
 
+// Simple in-memory rate limiter for triggerProceed (per village, 5s cooldown).
+// Entries are cleaned up when expired or when the village is no longer IN_PLAY.
+const proceedCooldowns = new Map<string, number>();
+const PROCEED_COOLDOWN_MS = 5_000;
+const PROCEED_CLEANUP_INTERVAL_MS = 60_000;
+let lastCleanup = Date.now();
+
+function cleanupCooldowns() {
+  const now = Date.now();
+  if (now - lastCleanup < PROCEED_CLEANUP_INTERVAL_MS) return;
+  lastCleanup = now;
+  for (const [key, timestamp] of proceedCooldowns) {
+    if (now - timestamp > PROCEED_COOLDOWN_MS) {
+      proceedCooldowns.delete(key);
+    }
+  }
+}
+
 export const gameRouter = createTRPCRouter({
   /**
    * Get the full game state for the current player.
@@ -319,8 +337,6 @@ export const gameRouter = createTRPCRouter({
           include: {
             votedPlayer: { select: { id: true, username: true } },
             attackedPlayer: { select: { id: true, username: true } },
-            divinedPlayer: { select: { id: true, username: true } },
-            guardedPlayer: { select: { id: true, username: true } },
           },
           orderBy: { day: "asc" },
         }),
@@ -342,12 +358,6 @@ export const gameRouter = createTRPCRouter({
             : null,
           attackedPlayer: r.attackedPlayer
             ? { id: r.attackedPlayer.id, username: r.attackedPlayer.username }
-            : null,
-          divinedPlayer: r.divinedPlayer
-            ? { id: r.divinedPlayer.id, username: r.divinedPlayer.username }
-            : null,
-          guardedPlayer: r.guardedPlayer
-            ? { id: r.guardedPlayer.id, username: r.guardedPlayer.username }
             : null,
         })),
       };
@@ -590,12 +600,22 @@ export const gameRouter = createTRPCRouter({
   triggerProceed: protectedProcedure
     .input(gameStateSchema)
     .mutation(async ({ ctx, input }) => {
+      // Rate limit: skip if this village was triggered recently
+      cleanupCooldowns();
+      const now = Date.now();
+      const lastTriggered = proceedCooldowns.get(input.villageId) ?? 0;
+      if (now - lastTriggered < PROCEED_COOLDOWN_MS) {
+        return { triggered: false };
+      }
+      proceedCooldowns.set(input.villageId, now);
+
       const village = await ctx.db.village.findUnique({
         where: { id: input.villageId },
         select: { status: true, nextUpdateTime: true },
       });
 
       if (!village || village.status !== "IN_PLAY" || !village.nextUpdateTime) {
+        proceedCooldowns.delete(input.villageId);
         return { triggered: false };
       }
 

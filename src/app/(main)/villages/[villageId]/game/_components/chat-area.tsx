@@ -110,6 +110,7 @@ export function RoomChat({
   const prependInFlightRef = useRef(false);
   const previousScrollHeightRef = useRef(0);
   const previousScrollTopRef = useRef(0);
+  const prevMessageCountRef = useRef(0);
 
   const {
     data,
@@ -140,6 +141,7 @@ export function RoomChat({
     prependInFlightRef.current = false;
     previousScrollHeightRef.current = 0;
     previousScrollTopRef.current = 0;
+    prevMessageCountRef.current = 0;
   }, [roomId]);
 
   // Keep scroll position when older messages are prepended,
@@ -216,6 +218,9 @@ export function RoomChat({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    // Only check when message count actually changed
+    if (messages.length === prevMessageCountRef.current) return;
+    prevMessageCountRef.current = messages.length;
     if (el.scrollHeight > el.clientHeight + 1) return;
     loadOlderMessages(el);
   }, [roomId, messages.length, loadOlderMessages]);

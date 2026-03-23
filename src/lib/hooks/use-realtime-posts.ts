@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 import { subscribeToRoomPosts } from "@/lib/supabase/realtime";
-import { createClient } from "@/lib/supabase/client";
 
 /**
  * Hook that subscribes to real-time post updates for a room.
@@ -17,14 +16,13 @@ export function useRealtimePosts(roomId: string | null) {
   useEffect(() => {
     if (!roomId) return;
 
-    const channel = subscribeToRoomPosts(roomId, () => {
+    const { supabase, channel } = subscribeToRoomPosts(roomId, () => {
       queryClient.invalidateQueries({
         queryKey: trpc.game.messages.queryKey(),
       });
     });
 
     return () => {
-      const supabase = createClient();
       supabase.removeChannel(channel);
     };
   }, [roomId, queryClient, trpc]);

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 import { subscribeToVillageUpdates } from "@/lib/supabase/realtime";
-import { createClient } from "@/lib/supabase/client";
 
 /**
  * Hook that subscribes to real-time game state updates for a village.
@@ -15,7 +14,7 @@ export function useGameRealtime(villageId: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = subscribeToVillageUpdates(villageId, () => {
+    const { supabase, channel } = subscribeToVillageUpdates(villageId, () => {
       queryClient.invalidateQueries({
         queryKey: trpc.game.state.queryKey(),
       });
@@ -28,7 +27,6 @@ export function useGameRealtime(villageId: string) {
     });
 
     return () => {
-      const supabase = createClient();
       supabase.removeChannel(channel);
     };
   }, [villageId, queryClient, trpc]);

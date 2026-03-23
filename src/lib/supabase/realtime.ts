@@ -1,16 +1,21 @@
 "use client";
 
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+
+interface Subscription {
+  supabase: SupabaseClient;
+  channel: RealtimeChannel;
+}
 
 /**
  * Subscribe to new posts in a room via Postgres Changes.
- * Returns the channel for cleanup.
+ * Returns the supabase client and channel for cleanup.
  */
 export function subscribeToRoomPosts(
   roomId: string,
   onNewPost: () => void,
-): RealtimeChannel {
+): Subscription {
   const supabase = createClient();
 
   const channel = supabase
@@ -29,17 +34,17 @@ export function subscribeToRoomPosts(
     )
     .subscribe();
 
-  return channel;
+  return { supabase, channel };
 }
 
 /**
  * Subscribe to village game update broadcasts.
- * Returns the channel for cleanup.
+ * Returns the supabase client and channel for cleanup.
  */
 export function subscribeToVillageUpdates(
   villageId: string,
   onUpdate: () => void,
-): RealtimeChannel {
+): Subscription {
   const supabase = createClient();
 
   const channel = supabase
@@ -49,5 +54,5 @@ export function subscribeToVillageUpdates(
     })
     .subscribe();
 
-  return channel;
+  return { supabase, channel };
 }

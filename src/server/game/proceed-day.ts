@@ -112,7 +112,10 @@ export async function proceedDay(villageId: string): Promise<void> {
       targetId: r.voteTargetId!,
     }));
 
-    const lynchTargetId = determineLynchTarget(votes);
+    const lynchTargetId = determineLynchTarget(
+      votes,
+      alivePlayers.map((p) => p.id),
+    );
 
     // Update Result with lynch target
     const result = await tx.result.findUnique({

@@ -13,8 +13,13 @@ export const sendMessageSchema = z.object({
   roomId: z.string(),
   content: z
     .string()
-    .min(1, "メッセージを入力してください")
-    .max(1000, "メッセージは1000文字以下で入力してください"),
+    .transform((s) => s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""))
+    .pipe(
+      z
+        .string()
+        .min(1, "メッセージを入力してください")
+        .max(1000, "メッセージは1000文字以下で入力してください"),
+    ),
 });
 
 export const messagesSchema = z.object({

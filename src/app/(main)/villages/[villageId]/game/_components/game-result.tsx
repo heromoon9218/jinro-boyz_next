@@ -90,12 +90,6 @@ export function GameResult({ villageId }: GameResultProps) {
                   <p>
                     襲撃: {r.attackedPlayer?.username ?? "なし"}
                   </p>
-                  {r.divinedPlayer && (
-                    <p>占い: {r.divinedPlayer.username}</p>
-                  )}
-                  {r.guardedPlayer && (
-                    <p>守護: {r.guardedPlayer.username}</p>
-                  )}
                 </div>
                 {index < data.results.length - 1 && (
                   <Separator className="mt-3" />
