@@ -92,28 +92,30 @@ export const gameRouter = createTRPCRouter({
       }[] = [];
 
       if (myPlayer.role === "FORTUNE_TELLER") {
-        const pastRecords = await ctx.db.record.findMany({
+        // Result.divinedPlayerId は proceedDay の夜解決と一致する（処刑で占い師が
+        // nightRecords から外れた日は null のまま）。record.divineTargetId だけでは
+        // 未実行の選択が残り得るため、ここでは Result を正とする。
+        const pastResults = await ctx.db.result.findMany({
           where: {
-            playerId: myPlayer.id,
             villageId: input.villageId,
             day: { lt: village.day },
-            divineTargetId: { not: null },
+            divinedPlayerId: { not: null },
           },
           include: {
-            divineTarget: {
+            divinedPlayer: {
               select: { id: true, username: true, role: true },
             },
           },
           orderBy: { day: "asc" },
         });
 
-        divineResults = pastRecords
-          .filter((r) => r.divineTarget)
+        divineResults = pastResults
+          .filter((r) => r.divinedPlayer)
           .map((r) => ({
             day: r.day,
-            targetId: r.divineTarget!.id,
-            targetName: r.divineTarget!.username,
-            isWerewolf: r.divineTarget!.role === "WEREWOLF",
+            targetId: r.divinedPlayer!.id,
+            targetName: r.divinedPlayer!.username,
+            isWerewolf: r.divinedPlayer!.role === "WEREWOLF",
           }));
       }
 
