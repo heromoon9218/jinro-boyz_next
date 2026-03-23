@@ -39,11 +39,11 @@ npm run test:e2e
 Docker Desktop 起動済みの前提。
 
 ```bash
-# 起動（Auth, Postgres, Storage 等がローカルで立ち上がる）
-npx supabase start
+# 起動
+npm run supabase:start
 
-# 停止
-npx supabase stop
+# 停止（旧イメージの自動クリーンアップ付き）
+npm run supabase:stop
 
 # ステータス確認（接続情報を表示）
 npx supabase status
