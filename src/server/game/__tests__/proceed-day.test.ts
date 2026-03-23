@@ -142,7 +142,7 @@ function setupProceedDayScenario(players: Player[], records: ReturnType<typeof c
     },
   };
 
-  mockTransaction.mockImplementation(async (callback: (client: typeof tx) => Promise<void>) =>
+  mockTransaction.mockImplementation(async (callback: (client: typeof tx) => Promise<boolean | void>) =>
     callback(tx),
   );
   mockBroadcastGameUpdate.mockResolvedValue(undefined);
@@ -251,5 +251,65 @@ describe("proceedDay", () => {
     expect(resultState.attackedPlayerId).toBe("villager-b");
     expect(playerState.find((player) => player.id === "villager-a")?.status).toBe("ALIVE");
     expect(playerState.find((player) => player.id === "villager-b")?.status).toBe("DEAD");
+  });
+
+  test("村が存在しないときはブロードキャストしない", async () => {
+    const players = [createPlayer("p1", "VILLAGER")];
+    const { tx } = setupProceedDayScenario(players, []);
+    tx.$queryRaw.mockResolvedValueOnce([]);
+
+    await proceedDay("village-1");
+
+    expect(mockBroadcastGameUpdate).not.toHaveBeenCalled();
+  });
+
+  test("next_update_time が未到来のときはブロードキャストしない", async () => {
+    const players = [createPlayer("p1", "VILLAGER")];
+    const { tx } = setupProceedDayScenario(players, []);
+    tx.$queryRaw.mockResolvedValueOnce([
+      {
+        id: "village-1",
+        day: 1,
+        status: "IN_PLAY",
+        discussion_time: 300,
+        show_vote_target: true,
+        next_update_time: new Date("2099-01-01T00:00:00.000Z"),
+      },
+    ]);
+
+    await proceedDay("village-1");
+
+    expect(mockBroadcastGameUpdate).not.toHaveBeenCalled();
+  });
+
+  test("進行が完了したときだけブロードキャストする", async () => {
+    const players = [
+      createPlayer("seer", "FORTUNE_TELLER"),
+      createPlayer("wolf", "WEREWOLF"),
+      createPlayer("villager-a", "VILLAGER"),
+      createPlayer("villager-b", "VILLAGER"),
+      createPlayer("villager-c", "VILLAGER"),
+    ];
+    const records = [
+      createRecord(players[0], players, 2, {
+        voteTargetId: "seer",
+        divineTargetId: "wolf",
+      }),
+      createRecord(players[1], players, 2, {
+        voteTargetId: "seer",
+        attackTargetId: "villager-a",
+        updatedAt: new Date("2026-03-15T00:00:05.000Z"),
+      }),
+      createRecord(players[2], players, 2, { voteTargetId: "seer" }),
+      createRecord(players[3], players, 2, { voteTargetId: "villager-b" }),
+      createRecord(players[4], players, 2, { voteTargetId: "villager-b" }),
+    ];
+
+    setupProceedDayScenario(players, records);
+
+    await proceedDay("village-1");
+
+    expect(mockBroadcastGameUpdate).toHaveBeenCalledTimes(1);
+    expect(mockBroadcastGameUpdate).toHaveBeenCalledWith("village-1");
   });
 });

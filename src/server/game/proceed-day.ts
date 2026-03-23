@@ -16,10 +16,10 @@ import { broadcastGameUpdate } from "./broadcast";
 /**
  * Advance one day for a village.
  * Runs the full day cycle (vote → judge → night actions → judge → next day)
- * in a single transaction, then broadcasts the update.
+ * in a single transaction, then broadcasts only when state actually changed.
  */
 export async function proceedDay(villageId: string): Promise<void> {
-  await db.$transaction(async (tx) => {
+  const didMutate = await db.$transaction(async (tx) => {
     // 1. Lock village row and verify it's eligible for processing
     const locked = await tx.$queryRaw<
       {
@@ -39,11 +39,11 @@ export async function proceedDay(villageId: string): Promise<void> {
       `,
     );
 
-    if (locked.length === 0) return;
+    if (locked.length === 0) return false;
     const raw = locked[0];
 
-    if (raw.status !== "IN_PLAY") return;
-    if (!raw.next_update_time || raw.next_update_time > new Date()) return;
+    if (raw.status !== "IN_PLAY") return false;
+    if (!raw.next_update_time || raw.next_update_time > new Date()) return false;
 
     const currentDay = raw.day;
     const showVoteTarget = raw.show_vote_target;
@@ -69,7 +69,7 @@ export async function proceedDay(villageId: string): Promise<void> {
     const mainRoom = await tx.room.findUnique({
       where: { villageId_type: { villageId, type: "MAIN" } },
     });
-    if (!mainRoom) return;
+    if (!mainRoom) return false;
 
     // Helper: post system message to MAIN room
     async function postSystemMessage(content: string) {
@@ -162,7 +162,7 @@ export async function proceedDay(villageId: string): Promise<void> {
     const winnerAfterLynch = judgeEnd(aliveAfterLynch);
     if (winnerAfterLynch) {
       await endGame(winnerAfterLynch);
-      return;
+      return true;
     }
 
     // ========================================
@@ -242,7 +242,7 @@ export async function proceedDay(villageId: string): Promise<void> {
       const winnerAfterAttack = judgeEnd(currentAlive);
       if (winnerAfterAttack) {
         await endGame(winnerAfterAttack);
-        return;
+        return true;
       }
     }
 
@@ -296,10 +296,13 @@ export async function proceedDay(villageId: string): Promise<void> {
         roomId: mainRoom.id,
       },
     });
+
+    return true;
   });
 
-  // Broadcast update after transaction commits
-  await broadcastGameUpdate(villageId).catch(() => {
-    // Non-critical: don't fail if broadcast fails
-  });
+  if (didMutate) {
+    await broadcastGameUpdate(villageId).catch(() => {
+      // Non-critical: don't fail if broadcast fails
+    });
+  }
 }
