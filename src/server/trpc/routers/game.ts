@@ -636,6 +636,7 @@ export const gameRouter = createTRPCRouter({
       }
 
       if (village.nextUpdateTime > new Date()) {
+        proceedCooldowns.delete(input.villageId);
         return { triggered: false };
       }
 

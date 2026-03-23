@@ -33,8 +33,9 @@ export function ChatArea({
 }: ChatAreaProps) {
   const { activeRoomType, setActiveRoomType } = useGameStore();
 
-  // Filter rooms based on role/status
+  // Filter rooms based on role/status (all rooms visible after game ends)
   const visibleRooms = rooms.filter((room) => {
+    if (isEnded) return true;
     if (room.type === "MAIN") return true;
     if (room.type === "WOLF") return myRole === "WEREWOLF";
     if (room.type === "DEAD") return myStatus === "DEAD";

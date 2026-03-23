@@ -202,7 +202,7 @@ export async function proceedDay(villageId: string): Promise<void> {
       let attackTargetId: string | null = null;
       if (wolfRecords.length > 0) {
         // Pick the werewolf record with the latest updatedAt
-        const sorted = wolfRecords.sort(
+        const sorted = wolfRecords.toSorted(
           (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
         );
         attackTargetId = sorted[0].attackTargetId;
