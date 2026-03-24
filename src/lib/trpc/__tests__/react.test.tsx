@@ -57,6 +57,10 @@ describe("TRPCReactProvider 認証キャッシュクリア", () => {
     );
 
     act(() => {
+      authChangeCallback("INITIAL_SESSION", { user: { id: "existing" } });
+    });
+
+    act(() => {
       authChangeCallback("SIGNED_OUT", null);
     });
 
@@ -69,6 +73,10 @@ describe("TRPCReactProvider 認証キャッシュクリア", () => {
         <div />
       </TRPCReactProvider>,
     );
+
+    act(() => {
+      authChangeCallback("INITIAL_SESSION", { user: { id: "existing" } });
+    });
 
     act(() => {
       authChangeCallback("SIGNED_IN", { user: { id: "new-user" } });
