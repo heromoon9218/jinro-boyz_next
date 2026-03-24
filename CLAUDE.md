@@ -32,6 +32,9 @@ npm run test
 
 # E2E テスト (Playwright)
 npm run test:e2e
+
+# シードデータ投入（E2Eテストの前提）
+npx prisma db seed
 ```
 
 ## ローカルSupabase開発環境
@@ -65,6 +68,7 @@ npx supabase status
 ## Architecture
 
 - `src/app/` — Next.js App Router (pages + API routes)
+- `e2e/` — Playwright E2E tests (seed data required)
 - `src/server/trpc/` — tRPC routers
 - `src/server/game/` — Game core logic (pure functions)
 - `src/server/db/` — Prisma client singleton
@@ -78,6 +82,7 @@ npx supabase status
 
 ## Key Files
 
+- `prisma/seed.ts` — E2Eテスト用シードデータ（8ユーザー + 3村: NOT_STARTED/IN_PLAY/ENDED）。共通パスワード: `password123`
 - `prisma.config.ts` — `.env.local` を優先読み込み（Prisma CLI用）
 - `next.config.ts` — Next.js設定
 - `playwright.config.ts` — E2Eテスト設定
