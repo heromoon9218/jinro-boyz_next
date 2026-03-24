@@ -126,8 +126,8 @@ export async function proceedDay(villageId: string): Promise<void> {
       )[0];
     let attackTargetId = latestWolfAttack?.attackTargetId ?? null;
 
-    // If no wolf set an attack target, pick a random living human
     if (!attackTargetId) {
+      // No wolf set an attack target — pick a random living human
       const livingHumans = livingAfterLynch.filter(
         (p) => p.role !== Role.WEREWOLF,
       );
@@ -135,6 +135,9 @@ export async function proceedDay(villageId: string): Promise<void> {
         attackTargetId =
           livingHumans[Math.floor(Math.random() * livingHumans.length)].id;
       }
+    } else if (!aliveAfterLynchIds.includes(attackTargetId)) {
+      // Attack target was lynched — attack fails (no fallback)
+      attackTargetId = null;
     }
 
     // Guard: get bodyguard target (only from surviving bodyguard)

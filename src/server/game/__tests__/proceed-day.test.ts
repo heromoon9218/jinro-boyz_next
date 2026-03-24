@@ -363,6 +363,33 @@ describe("proceedDay", () => {
     );
   });
 
+  test("襲撃対象が処刑されていた場合、襲撃失敗（誰も死なない）", async () => {
+    // wolf1 が vil1 を襲撃対象に指定、しかし vil1 が処刑される
+    const records = [
+      makeRecord("wolf1", { voteTargetId: "vil1", attackTargetId: "vil1" }),
+      makeRecord("seer1", { voteTargetId: "vil1" }),
+      makeRecord("guard1", { voteTargetId: "vil1" }),
+      makeRecord("vil1", { voteTargetId: "wolf1" }),
+      makeRecord("vil2", { voteTargetId: "wolf1" }),
+    ];
+
+    const calls = setupTransaction(baseVillage, records);
+    await proceedDay("v1");
+
+    // 処刑のみ（playerUpdate 1回だけ）
+    expect(calls.playerUpdate).toHaveBeenCalledTimes(1);
+    expect(calls.playerUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "vil1" },
+        data: { status: "DEAD" },
+      }),
+    );
+
+    // 襲撃失敗: attackedPlayerId が null
+    const resultCall = calls.resultCreate.mock.calls[0][0];
+    expect(resultCall.data.attackedPlayerId).toBeNull();
+  });
+
   test("投票なしの場合、ランダム処刑のシステムメッセージが投稿される", async () => {
     const records = [
       makeRecord("wolf1", { attackTargetId: "seer1" }),
