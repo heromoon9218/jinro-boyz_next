@@ -17,6 +17,7 @@ import {
   kickPlayerSchema,
 } from "@/lib/validators/village";
 import { assignRoles } from "@/server/game/assign-roles";
+import { startMessage } from "@/server/game/system-messages";
 
 export const villageRouter = createTRPCRouter({
   list: publicProcedure
@@ -404,6 +405,26 @@ export const villageRouter = createTRPCRouter({
             villageId: village.id,
           })),
         });
+
+        // 開始システムメッセージをMAINルームに投稿
+        const mainRoom = await tx.room.findUnique({
+          where: {
+            villageId_type: { villageId: village.id, type: "MAIN" },
+          },
+        });
+        if (mainRoom) {
+          const wolfCount = [...roleAssignments.values()].filter(
+            (r) => r === "WEREWOLF",
+          ).length;
+          await tx.post.create({
+            data: {
+              content: startMessage(wolfCount),
+              day: 1,
+              owner: "SYSTEM",
+              roomId: mainRoom.id,
+            },
+          });
+        }
 
         return { success: true };
       });

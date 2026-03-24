@@ -1,11 +1,18 @@
 /**
  * Determine which player gets lynched based on vote records.
- * Returns the player ID with the most votes, or null on a tie.
+ *
+ * Rules:
+ * - Most votes → executed
+ * - Tie → random pick among tied players (execution always happens)
+ * - No votes → random pick from alivePlayerIds
  */
 export function determineLynchTarget(
   votes: { voterId: string; targetId: string }[],
-): string | null {
-  if (votes.length === 0) return null;
+  alivePlayerIds: string[],
+): string {
+  if (votes.length === 0) {
+    return pickRandom(alivePlayerIds);
+  }
 
   const voteCounts = new Map<string, number>();
   for (const vote of votes) {
@@ -17,8 +24,10 @@ export function determineLynchTarget(
     .filter(([, count]) => count === maxVotes)
     .map(([id]) => id);
 
-  // Tie = no execution
-  if (topTargets.length > 1) return null;
+  return topTargets.length === 1 ? topTargets[0] : pickRandom(topTargets);
+}
 
-  return topTargets[0];
+function pickRandom(arr: string[]): string {
+  if (arr.length === 0) throw new Error("pickRandom called with empty array");
+  return arr[Math.floor(Math.random() * arr.length)];
 }

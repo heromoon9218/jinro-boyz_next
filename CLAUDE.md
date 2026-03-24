@@ -32,6 +32,9 @@ npm run test
 
 # E2E テスト (Playwright)
 npm run test:e2e
+
+# シードデータ投入（E2Eテストの前提）
+npx prisma db seed
 ```
 
 ## ローカルSupabase開発環境
@@ -65,6 +68,7 @@ npx supabase status
 ## Architecture
 
 - `src/app/` — Next.js App Router (pages + API routes)
+- `e2e/` — Playwright E2E tests (seed data required)
 - `src/server/trpc/` — tRPC routers
 - `src/server/game/` — Game core logic (pure functions)
 - `src/server/db/` — Prisma client singleton
@@ -78,12 +82,17 @@ npx supabase status
 
 ## Key Files
 
+- `prisma/seed.ts` — E2Eテスト用シードデータ（8ユーザー + 3村: NOT_STARTED/IN_PLAY/ENDED）。共通パスワード: `password123`
 - `prisma.config.ts` — `.env.local` を優先読み込み（Prisma CLI用）
 - `next.config.ts` — Next.js設定
 - `playwright.config.ts` — E2Eテスト設定
 - `vitest.config.ts` — ユニットテスト設定
 - `components.json` — shadcn/ui + TailwindCSS設定
 - `scripts/sync_user_email_on_auth_change.sql` — Supabase Auth トリガー（初回のみ）
+
+## Reference Implementation
+
+`~/GitPro/jinro_rails` — Rails 版人狼BOYZ。ゲームルールや権限仕様の正とすべきリファレンス。仕様に迷ったらこちらを確認。
 
 ## Domain Model
 
@@ -99,3 +108,18 @@ npx supabase status
 **Roles**: VILLAGER (村人), WEREWOLF (人狼), FORTUNE_TELLER (占い師), PSYCHIC (霊媒師), BODYGUARD (騎士), MADMAN (狂人)
 
 **Victory**: Humans win when all werewolves eliminated; werewolves win when `living_wolves ≥ living_humans`.
+
+### Game Rules
+
+- **投票同数**: ランダムで1人を処刑（処刑なしにはならない）。投票なし時は生存者全員からランダム
+- **処刑後の夜アクション**: 処刑されたプレイヤーの夜アクション（占い・守護・襲撃）は無効
+- **襲撃対象が処刑済み**: 襲撃失敗（誰も死なない）。ランダムフォールバックはしない
+- **襲撃対象が未指定**: 生存中の人間からランダムで1人を襲撃
+
+### Room Access Control
+
+| Room | ゲーム中（読み取り） | ゲーム中（書き込み） | ゲーム終了後 |
+|------|---------------------|---------------------|-------------|
+| MAIN | 誰でも（未ログイン含む） | 生存者のみ | 誰でも閲覧可 |
+| WOLF | 人狼のみ | 生存中の人狼のみ | 誰でも閲覧可 |
+| DEAD | 死亡者のみ | 死亡者のみ | 誰でも閲覧可 |

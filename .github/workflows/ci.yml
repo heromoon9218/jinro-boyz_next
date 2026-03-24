@@ -11,8 +11,48 @@ env:
   DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+      test: ${{ steps.filter.outputs.test }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            src:
+              - 'src/**'
+              - 'prisma/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'next.config.ts'
+              - 'tsconfig.json'
+              - 'components.json'
+              - '.github/workflows/ci.yml'
+            test:
+              - 'src/**'
+              - 'prisma/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vitest.config.ts'
+              - '.github/workflows/ci.yml'
+            e2e:
+              - 'src/**'
+              - 'prisma/**'
+              - 'e2e/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+
   lint-and-build:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.src == 'true'
 
     steps:
       - uses: actions/checkout@v6
@@ -35,7 +75,8 @@ jobs:
 
   unit-test:
     runs-on: ubuntu-latest
-    needs: lint-and-build
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
 
     steps:
       - uses: actions/checkout@v6
@@ -53,7 +94,9 @@ jobs:
 
   e2e-test:
     runs-on: ubuntu-latest
-    needs: lint-and-build
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v6
@@ -63,13 +106,37 @@ jobs:
           node-version: 24
           cache: npm
 
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Export Supabase env vars
+        run: |
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
+          echo "DIRECT_URL=$DB_URL" >> "$GITHUB_ENV"
+
       - run: npm ci
 
       - run: npx prisma generate
 
+      - run: npx prisma migrate deploy
+
+      - run: npx prisma db seed
+
       - run: npx playwright install --with-deps
 
       - run: npm run test:e2e
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-key-for-build
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

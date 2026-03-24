@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,7 @@ export function VillageActions({
 }: VillageActionsProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   const invalidate = () => {
@@ -77,6 +80,7 @@ export function VillageActions({
       onSuccess: () => {
         toast.success("ゲームを開始しました");
         invalidate();
+        router.push(`/villages/${village.id}/game`);
       },
       onError: (error) => {
         toast.error(error.message);
@@ -117,6 +121,13 @@ export function VillageActions({
 
   return (
     <div className="flex flex-wrap gap-2">
+      {/* ゲーム画面へ: 進行中 or 終了 */}
+      {(village.status === "IN_PLAY" || village.status === "ENDED") && (
+        <Button asChild>
+          <Link href={`/villages/${village.id}/game`}>ゲーム画面へ</Link>
+        </Button>
+      )}
+
       {/* 参加ボタン: 未開始 + 未参加 + 定員未到達 */}
       {village.status === "NOT_STARTED" && !isParticipant && !isFull && (
         <Button
