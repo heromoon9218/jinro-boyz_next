@@ -26,6 +26,7 @@ export async function proceedDay(villageId: string): Promise<void> {
       },
     });
     if (!village || village.status !== "IN_PLAY") return;
+    if (!village.nextUpdateTime || village.nextUpdateTime > new Date()) return;
 
     const currentDay = village.day;
     const mainRoom = village.rooms.find((r) => r.type === "MAIN");
