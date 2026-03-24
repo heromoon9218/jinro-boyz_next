@@ -41,7 +41,7 @@ export function GameHeader({ village }: GameHeaderProps) {
           </Badge>
         )}
         {village.status === "IN_PLAY" && (
-          <Timer nextUpdateTime={village.nextUpdateTime} />
+          <Timer villageId={village.id} nextUpdateTime={village.nextUpdateTime} />
         )}
       </div>
     </div>

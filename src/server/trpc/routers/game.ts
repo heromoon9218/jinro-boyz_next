@@ -5,6 +5,7 @@ import {
   publicProcedure,
   protectedProcedure,
 } from "@/server/trpc/init";
+import { proceedDay } from "@/server/game/proceed-day";
 import {
   gameStateSchema,
   actionSchema,
@@ -350,6 +351,25 @@ export const gameRouter = createTRPCRouter({
         : null,
     }));
   }),
+
+  proceed: publicProcedure
+    .input(gameStateSchema)
+    .mutation(async ({ ctx, input }) => {
+      const village = await ctx.db.village.findUnique({
+        where: { id: input.villageId },
+        select: { id: true, status: true, nextUpdateTime: true },
+      });
+      if (
+        !village ||
+        village.status !== "IN_PLAY" ||
+        !village.nextUpdateTime ||
+        village.nextUpdateTime > new Date()
+      ) {
+        return { proceeded: false };
+      }
+      await proceedDay(village.id);
+      return { proceeded: true };
+    }),
 
   sendMessage: protectedProcedure
     .input(sendMessageSchema)
