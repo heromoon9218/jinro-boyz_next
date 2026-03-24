@@ -187,9 +187,22 @@ export async function proceedDay(villageId: string): Promise<void> {
       .filter((p) => p.id !== attackedPlayerId)
       .map((p) => ({ id: p.id, role: p.role }));
 
+    // Post night result message (before end check, so victims are always shown)
+    const killedPlayerName = attackedPlayerId
+      ? playerMap.get(attackedPlayerId)?.username ?? null
+      : null;
+    await tx.post.create({
+      data: {
+        content: morningMessage(currentDay + 1, killedPlayerName),
+        day: currentDay + 1,
+        owner: "SYSTEM",
+        roomId: mainRoom.id,
+      },
+    });
+
     const winner2 = judgeEnd(livingAfterNight);
     if (winner2) {
-      await endGame(tx, village, winner2, mainRoom.id, currentDay);
+      await endGame(tx, village, winner2, mainRoom.id, currentDay + 1);
       return;
     }
 
@@ -217,18 +230,6 @@ export async function proceedDay(villageId: string): Promise<void> {
       })),
     });
 
-    // Post morning message
-    const killedPlayerName = attackedPlayerId
-      ? playerMap.get(attackedPlayerId)?.username ?? null
-      : null;
-    await tx.post.create({
-      data: {
-        content: morningMessage(newDay, killedPlayerName),
-        day: newDay,
-        owner: "SYSTEM",
-        roomId: mainRoom.id,
-      },
-    });
   });
 }
 
