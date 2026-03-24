@@ -1,25 +1,25 @@
 import { create } from "zustand";
+import type { RoomType } from "@/generated/prisma";
 
 interface GameState {
-  currentDay: number;
-  isNight: boolean;
-  selectedTarget: string | null;
-  setCurrentDay: (day: number) => void;
-  setIsNight: (isNight: boolean) => void;
-  setSelectedTarget: (targetId: string | null) => void;
+  currentRoom: RoomType;
+  showSkillPanel: boolean;
+  setCurrentRoom: (room: RoomType) => void;
+  toggleSkillPanel: () => void;
+  setShowSkillPanel: (show: boolean) => void;
   reset: () => void;
 }
 
 const initialState = {
-  currentDay: 0,
-  isNight: false,
-  selectedTarget: null,
+  currentRoom: "MAIN" as RoomType,
+  showSkillPanel: false,
 };
 
 export const useGameStore = create<GameState>((set) => ({
   ...initialState,
-  setCurrentDay: (day) => set({ currentDay: day }),
-  setIsNight: (isNight) => set({ isNight }),
-  setSelectedTarget: (targetId) => set({ selectedTarget: targetId }),
+  setCurrentRoom: (room) => set({ currentRoom: room }),
+  toggleSkillPanel: () =>
+    set((state) => ({ showSkillPanel: !state.showSkillPanel })),
+  setShowSkillPanel: (show) => set({ showSkillPanel: show }),
   reset: () => set(initialState),
 }));

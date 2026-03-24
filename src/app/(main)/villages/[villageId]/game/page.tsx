@@ -1,3 +1,7 @@
+import { redirect } from "next/navigation";
+import { db } from "@/server/db";
+import { GameClient } from "./_components/game-client";
+
 export default async function GamePage({
   params,
 }: {
@@ -5,12 +9,18 @@ export default async function GamePage({
 }) {
   const { villageId } = await params;
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">ゲーム画面</h1>
-      <p className="mt-2 text-muted-foreground">
-        村ID: {villageId} — ゲーム画面は Phase 3 で実装予定
-      </p>
-    </div>
-  );
+  const village = await db.village.findUnique({
+    where: { id: villageId },
+    select: { status: true },
+  });
+
+  if (!village) {
+    redirect("/villages");
+  }
+
+  if (village.status === "NOT_STARTED" || village.status === "RUINED") {
+    redirect(`/villages/${villageId}`);
+  }
+
+  return <GameClient villageId={villageId} />;
 }

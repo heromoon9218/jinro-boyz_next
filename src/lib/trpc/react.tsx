@@ -48,11 +48,18 @@ export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
   );
 
   // 認証状態が変わったらキャッシュをクリア（セッション切れ・マルチタブ対応）
+  // INITIAL_SESSION 後の最初のイベントはセッション復元なのでスキップ
   useEffect(() => {
     const supabase = createClient();
+    let initialized = false;
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "INITIAL_SESSION") {
+        initialized = true;
+        return;
+      }
+      if (!initialized) return;
       if (event === "SIGNED_OUT" || event === "SIGNED_IN") {
         queryClient.clear();
       }
