@@ -242,7 +242,7 @@ async function endGame(
 ): Promise<void> {
   await tx.village.update({
     where: { id: village.id },
-    data: { status: "ENDED", winner, nextUpdateTime: null },
+    data: { status: "ENDED", winner, nextUpdateTime: null, day },
   });
 
   await tx.post.create({

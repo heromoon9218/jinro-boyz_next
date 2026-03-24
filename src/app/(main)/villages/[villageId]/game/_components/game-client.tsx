@@ -121,7 +121,7 @@ export function GameClient({ villageId }: GameClientProps) {
           />
         ) : (
           activeRoom && (
-            <ChatArea roomId={activeRoom.id} canSpeak={canSpeak} />
+            <ChatArea key={activeRoom.id} roomId={activeRoom.id} canSpeak={canSpeak} />
           )
         )}
       </div>
