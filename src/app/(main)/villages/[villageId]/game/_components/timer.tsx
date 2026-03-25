@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/react";
 
@@ -48,6 +48,12 @@ export function Timer({ villageId, nextUpdateTime }: TimerProps) {
   const trpc = useTRPC();
   const { mutate } = useMutation(trpc.game.proceed.mutationOptions());
 
+  const fire = useCallback(() => {
+    if (hasFired.current) return;
+    hasFired.current = true;
+    mutate({ villageId });
+  }, [villageId, mutate]);
+
   // Reset hasFired when nextUpdateTime changes (new day started)
   useEffect(() => {
     hasFired.current = false;
@@ -56,11 +62,16 @@ export function Timer({ villageId, nextUpdateTime }: TimerProps) {
   // Trigger proceedDay when timer expires
   useEffect(() => {
     if (targetMs === null || hasFired.current) return;
-    if (Date.now() < targetMs) return;
 
-    hasFired.current = true;
-    mutate({ villageId });
-  }, [targetMs, remaining, villageId, mutate]);
+    const now = Date.now();
+    if (now >= targetMs) {
+      fire();
+      return;
+    }
+
+    const id = setTimeout(() => fire(), targetMs - now);
+    return () => clearTimeout(id);
+  }, [targetMs, fire]);
 
   if (!remaining) return null;
 
