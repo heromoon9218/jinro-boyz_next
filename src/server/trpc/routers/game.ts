@@ -352,7 +352,7 @@ export const gameRouter = createTRPCRouter({
     }));
   }),
 
-  proceed: publicProcedure
+  proceed: protectedProcedure
     .input(gameStateSchema)
     .mutation(async ({ ctx, input }) => {
       const village = await ctx.db.village.findUnique({

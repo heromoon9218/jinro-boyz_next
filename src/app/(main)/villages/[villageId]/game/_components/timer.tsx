@@ -56,11 +56,22 @@ export function Timer({ villageId, nextUpdateTime }: TimerProps) {
   // Trigger proceedDay when timer expires
   useEffect(() => {
     if (targetMs === null || hasFired.current) return;
-    if (Date.now() < targetMs) return;
 
-    hasFired.current = true;
-    mutate({ villageId });
-  }, [targetMs, remaining, villageId, mutate]);
+    const delay = targetMs - Date.now();
+    if (delay <= 0) {
+      hasFired.current = true;
+      mutate({ villageId });
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      if (!hasFired.current) {
+        hasFired.current = true;
+        mutate({ villageId });
+      }
+    }, delay);
+    return () => clearTimeout(timerId);
+  }, [targetMs, villageId, mutate]);
 
   if (!remaining) return null;
 
