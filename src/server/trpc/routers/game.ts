@@ -295,6 +295,79 @@ export const gameRouter = createTRPCRouter({
         }));
     }),
 
+  results: publicProcedure
+    .input(gameStateSchema)
+    .query(async ({ ctx, input }) => {
+      const village = await ctx.db.village.findUnique({
+        where: { id: input.villageId },
+        select: { day: true, status: true, showVoteTarget: true },
+      });
+      if (!village) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "村が見つかりません" });
+      }
+      if (village.status !== "ENDED" && village.status !== "RUINED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "終了した村のみ閲覧できます",
+        });
+      }
+
+      const results = await ctx.db.result.findMany({
+        where: { villageId: input.villageId },
+        include: {
+          votedPlayer: { select: { username: true, role: true } },
+          attackedPlayer: { select: { username: true, role: true } },
+          divinedPlayer: { select: { username: true, role: true } },
+          guardedPlayer: { select: { username: true } },
+        },
+        orderBy: { day: "asc" },
+      });
+
+      const records = await ctx.db.record.findMany({
+        where: { villageId: input.villageId, voteTargetId: { not: null } },
+        include: {
+          player: { select: { username: true } },
+          voteTarget: { select: { username: true } },
+        },
+        orderBy: [{ day: "asc" }, { createdAt: "asc" }],
+      });
+
+      // 最終Resultのdayとvillage.dayが一致 → 処刑でゲーム終了（夜フェーズなし）
+      // 一致しない → 夜フェーズ経由で終了（village.dayは翌朝に進んでいる）
+      const lastResultDay = results[results.length - 1]?.day ?? 0;
+
+      return {
+        showVoteTarget: village.showVoteTarget,
+        results: results.map((r) => {
+          const isLastDay = r.day === lastResultDay;
+          return {
+            day: r.day,
+            hasNightPhase: !(isLastDay && lastResultDay === village.day),
+            votedPlayer: r.votedPlayer
+              ? { username: r.votedPlayer.username, role: r.votedPlayer.role }
+              : null,
+            attackedPlayer: r.attackedPlayer
+              ? { username: r.attackedPlayer.username, role: r.attackedPlayer.role }
+              : null,
+            divinedPlayer: r.divinedPlayer
+              ? {
+                  username: r.divinedPlayer.username,
+                  isWerewolf: r.divinedPlayer.role === Role.WEREWOLF,
+                }
+              : null,
+            guardedPlayer: r.guardedPlayer
+              ? { username: r.guardedPlayer.username }
+              : null,
+          };
+        }),
+        voteDetails: records.map((r) => ({
+          day: r.day,
+          voterName: r.player.username,
+          targetName: r.voteTarget!.username,
+        })),
+      };
+    }),
+
   posts: publicProcedure.input(postsSchema).query(async ({ ctx, input }) => {
     const room = await ctx.db.room.findUnique({
       where: { id: input.roomId },

@@ -37,11 +37,12 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 
 ---
 
-## Phase 2: 村一覧 + 村作成
+## Phase 2: 村一覧 + 村作成 ✅ 完了
 
 村の閲覧・作成・参加・退出。ゲーム開始前の準備フェーズ。
 
 ### 機能
+
 - **村一覧ページ** (`/villages`)
   - 進行中 / 募集中 / 終了済み のフィルタリング
   - ページネーション
@@ -59,6 +60,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
   - 村主によるプレイヤーキック機能
 
 ### tRPC ルーター拡張
+
 - `village.list` — フィルタリング + ページネーション対応
 - `village.byId` — 詳細取得（プレイヤー一覧含む）
 - `village.join` — 村に参加
@@ -69,11 +71,12 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 
 ---
 
-## Phase 3: ゲーム画面 + ゲーム進行
+## Phase 3: ゲーム画面 + ゲーム進行 ✅ 完了
 
 リアルタイムチャットとゲーム進行ロジック。人狼ゲームの核心部分。
 
 ### 機能
+
 - **ゲームルーム** (`/villages/[villageId]/game`)
   - チャットエリア（メインルーム / 人狼ルーム / 死者ルーム の切り替え）
   - メッセージ送信（リアルタイム）
@@ -95,10 +98,12 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
   - `discussion_time` 経過後に自動でフェーズ切り替え
 
 ### リアルタイム通信
+
 - Supabase Realtime（Postgres Changes or Broadcast）でメッセージ配信
 - ページリロード指示（ゲーム状態変更時）
 
 ### tRPC ルーター
+
 - `room.posts` — メッセージ取得
 - `room.send` — メッセージ送信
 - `record.vote` — 投票
@@ -116,6 +121,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 ゲーム終了後の結果表示とユーザー戦績。
 
 ### 機能
+
 - **ゲーム結果画面**
   - 勝利陣営の表示
   - 全プレイヤーの役職開示
@@ -126,6 +132,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
   - 勝率
 
 ### tRPC ルーター
+
 - `user.stats` — ユーザーの戦績統計
 
 ---
@@ -135,6 +142,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 ユーザー体験の向上と細かな機能追加。
 
 ### 機能
+
 - **アバター機能**
   - ユーザーアバター（プロフィール画像）
   - ゲーム内プレイヤーアバター
@@ -160,6 +168,7 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 本番環境への公開と運用基盤。
 
 ### 機能
+
 - Vercel デプロイ設定
 - Supabase 本番プロジェクト設定
 - 環境変数管理
@@ -172,23 +181,26 @@ Supabase Auth統合、ログイン/サインアップUI、プロフィールCRUD
 
 ## リファレンス: jinro_rails からの機能移行マップ
 
-| jinro_rails 機能 | Phase | jinro-boyz_next 対応 |
-|-----------------|-------|---------------------|
-| Devise (認証) | 1 | Supabase Auth + Server Actions |
-| ユーザープロフィール | 1 | tRPC user ルーター + Server Component |
-| 村一覧 (VillagesController#index) | 2 | tRPC village.list + React |
-| 村作成 (VillagesController#create) | 2 | tRPC village.create + Dialog |
-| 村参加/退出 (PlayersController) | 2 | tRPC village.join/leave |
-| ゲーム開始 (VillagesController#start) | 2 | tRPC village.start |
-| 廃村 (VillagesController#ruin) | 2 | tRPC village.ruin |
-| キック (KicksController) | 2 | tRPC village.kick |
-| チャット (RoomsController + ActionCable) | 3 | Supabase Realtime + tRPC |
-| 投票/襲撃/占い/護衛 (RecordsController) | 3 | tRPC record ルーター |
-| ゲーム自動進行 (ProceedVillageJob) | 3 | Vercel Cron + API route |
-| ゲーム結果 | 4 | Server Component |
-| ユーザー戦績 | 4 | tRPC user.stats |
-| アバター (ActiveStorage) | 5 | Supabase Storage |
-| 通知 (NotificationsController) | 5 | tRPC + admin UI |
-| マニュアル (ManualsController) | 5 | 静的ページ or CMS |
-| Sidekiq ダッシュボード | 6 | Vercel Cron 監視 |
-| Twitter連携 (TweetVillageJob) | - | 優先度低、必要に応じて |
+
+| jinro_rails 機能                       | Phase | jinro-boyz_next 対応                |
+| ------------------------------------ | ----- | --------------------------------- |
+| Devise (認証)                          | 1     | Supabase Auth + Server Actions    |
+| ユーザープロフィール                           | 1     | tRPC user ルーター + Server Component |
+| 村一覧 (VillagesController#index)       | 2     | tRPC village.list + React         |
+| 村作成 (VillagesController#create)      | 2     | tRPC village.create + Dialog      |
+| 村参加/退出 (PlayersController)           | 2     | tRPC village.join/leave           |
+| ゲーム開始 (VillagesController#start)     | 2     | tRPC village.start                |
+| 廃村 (VillagesController#ruin)         | 2     | tRPC village.ruin                 |
+| キック (KicksController)                | 2     | tRPC village.kick                 |
+| チャット (RoomsController + ActionCable) | 3     | Supabase Realtime + tRPC          |
+| 投票/襲撃/占い/護衛 (RecordsController)      | 3     | tRPC record ルーター                  |
+| ゲーム自動進行 (ProceedVillageJob)          | 3     | Vercel Cron + API route           |
+| ゲーム結果                                | 4     | Server Component                  |
+| ユーザー戦績                               | 4     | tRPC user.stats                   |
+| アバター (ActiveStorage)                 | 5     | Supabase Storage                  |
+| 通知 (NotificationsController)         | 5     | tRPC + admin UI                   |
+| マニュアル (ManualsController)            | 5     | 静的ページ or CMS                      |
+| Sidekiq ダッシュボード                      | 6     | Vercel Cron 監視                    |
+| Twitter連携 (TweetVillageJob)          | -     | 優先度低、必要に応じて                       |
+
+
