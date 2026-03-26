@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/server/db";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "./profile-form";
+import { GameRecord } from "./game-record";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -36,6 +37,7 @@ export default async function ProfilePage() {
         </p>
       </div>
       <ProfileForm initialComment={user.profile?.comment ?? ""} />
+      <GameRecord />
     </div>
   );
 }

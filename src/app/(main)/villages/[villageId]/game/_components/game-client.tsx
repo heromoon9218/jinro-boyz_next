@@ -13,6 +13,7 @@ import { RoomTabs } from "./room-tabs";
 import { ChatArea } from "./chat-area";
 import { SkillPanel } from "./skill-panel";
 import { PlayerListPanel } from "./player-list-panel";
+import { ResultsPanel } from "./results-panel";
 import type { Role } from "@/generated/prisma";
 
 interface GameClientProps {
@@ -21,7 +22,7 @@ interface GameClientProps {
 
 export function GameClient({ villageId }: GameClientProps) {
   const trpc = useTRPC();
-  const { currentRoom, showSkillPanel, toggleSkillPanel, reset } =
+  const { currentRoom, showSkillPanel, showResultsPanel, toggleSkillPanel, reset } =
     useGameStore();
 
   useEffect(() => {
@@ -67,10 +68,10 @@ export function GameClient({ villageId }: GameClientProps) {
   const isAlive = currentPlayer?.status === "ALIVE";
   const isInPlay = village.status === "IN_PLAY";
 
-  // Find current room object
+  // 現在選択中のルームを取得
   const activeRoom = rooms.find((r) => r.type === currentRoom) ?? rooms[0];
 
-  // Determine if user can speak in the current room
+  // 現在のルームで発言可能かを判定
   const canSpeak =
     isInPlay &&
     !!currentPlayer &&
@@ -84,14 +85,14 @@ export function GameClient({ villageId }: GameClientProps) {
       return false;
     })();
 
-  // Show skill panel only for alive players during game
+  // スキルパネルはゲーム中の生存プレイヤーのみ表示
   const canUseSkills = isInPlay && isAlive && !!currentPlayer;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <GameHeader village={village} />
 
-      {/* Role badge for current player */}
+      {/* 現在のプレイヤーの役職バッジ */}
       {currentPlayer && (
         <div className="flex items-center gap-2 border-b px-4 py-1.5">
           <span className="text-xs text-muted-foreground">あなたの役職:</span>
@@ -106,11 +107,13 @@ export function GameClient({ villageId }: GameClientProps) {
         </div>
       )}
 
-      <RoomTabs rooms={rooms} />
+      <RoomTabs rooms={rooms} isGameEnded={isGameEnded} />
 
-      {/* Main content area */}
+      {/* メインコンテンツエリア */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {showSkillPanel && canUseSkills ? (
+        {showResultsPanel && isGameEnded ? (
+          <ResultsPanel villageId={villageId} />
+        ) : showSkillPanel && canUseSkills ? (
           <SkillPanel
             villageId={villageId}
             currentPlayerId={currentPlayer!.id}
@@ -126,7 +129,7 @@ export function GameClient({ villageId }: GameClientProps) {
         )}
       </div>
 
-      {/* Toggle button + player list */}
+      {/* アクション切替ボタン + プレイヤー一覧 */}
       <div>
         {canUseSkills && (
           <div className="flex justify-end border-t px-3 py-1.5">

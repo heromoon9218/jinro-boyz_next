@@ -26,6 +26,7 @@ const {
   mockPlayerFindFirst,
   mockRecordFindUnique,
   mockRecordUpdate,
+  mockRecordFindMany,
   mockResultFindMany,
   mockRoomFindUnique,
   mockPostFindMany,
@@ -36,6 +37,7 @@ const {
   mockPlayerFindFirst: vi.fn(),
   mockRecordFindUnique: vi.fn(),
   mockRecordUpdate: vi.fn(),
+  mockRecordFindMany: vi.fn(),
   mockResultFindMany: vi.fn(),
   mockRoomFindUnique: vi.fn(),
   mockPostFindMany: vi.fn(),
@@ -59,7 +61,7 @@ vi.mock("@/server/db", () => ({
     user: { findUnique: mockFindUniqueUser },
     village: { findUnique: mockVillageFindUnique },
     player: { findFirst: mockPlayerFindFirst },
-    record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
+    record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate, findMany: mockRecordFindMany },
     result: { findMany: mockResultFindMany },
     room: { findUnique: mockRoomFindUnique },
     post: { findMany: mockPostFindMany, create: mockPostCreate },
@@ -83,7 +85,7 @@ function createAuthCaller(authId = AUTH_USER_1) {
       user: { findUnique: mockFindUniqueUser },
       village: { findUnique: mockVillageFindUnique },
       player: { findFirst: mockPlayerFindFirst },
-      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
+      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate, findMany: mockRecordFindMany },
       result: { findMany: mockResultFindMany },
       room: { findUnique: mockRoomFindUnique },
       post: { findMany: mockPostFindMany, create: mockPostCreate },
@@ -101,7 +103,7 @@ function createPublicCaller() {
       user: { findUnique: mockFindUniqueUser },
       village: { findUnique: mockVillageFindUnique },
       player: { findFirst: mockPlayerFindFirst },
-      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
+      record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate, findMany: mockRecordFindMany },
       result: { findMany: mockResultFindMany },
       room: { findUnique: mockRoomFindUnique },
       post: { findMany: mockPostFindMany, create: mockPostCreate },
@@ -195,7 +197,7 @@ describe("game.state", () => {
         user: { findUnique: mockFindUniqueUser },
         village: { findUnique: mockVillageFindUnique },
         player: { findFirst: mockPlayerFindFirst },
-        record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate },
+        record: { findUnique: mockRecordFindUnique, update: mockRecordUpdate, findMany: mockRecordFindMany },
         result: { findMany: mockResultFindMany },
         room: { findUnique: mockRoomFindUnique },
         post: { findMany: mockPostFindMany, create: mockPostCreate },
@@ -844,5 +846,195 @@ describe("game.sendMessage", () => {
     expect(err).toBeInstanceOf(TRPCError);
     expect((err as TRPCError).code).toBe("FORBIDDEN");
     expect((err as TRPCError).message).toBe("参加者のみ発言できます");
+  });
+});
+
+// ──────────────────────────────────────────────
+// game.results
+// ──────────────────────────────────────────────
+
+describe("game.results", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("ENDED の村の結果を取得できる", async () => {
+    // village.day=2: 処刑でゲーム終了 → 最終日は夜なし
+    mockVillageFindUnique.mockResolvedValue({
+      day: 2,
+      status: "ENDED",
+      showVoteTarget: true,
+    });
+    mockResultFindMany.mockResolvedValue([
+      {
+        day: 1,
+        votedPlayerId: PLAYER_2,
+        attackedPlayerId: PLAYER_FT,
+        divinedPlayerId: PLAYER_3,
+        guardedPlayerId: PLAYER_2,
+        votedPlayer: { username: "player2", role: "VILLAGER" },
+        attackedPlayer: { username: "fortune", role: "FORTUNE_TELLER" },
+        divinedPlayer: { username: "player3", role: "WEREWOLF" },
+        guardedPlayer: { username: "player2" },
+      },
+      {
+        day: 2,
+        votedPlayerId: PLAYER_1,
+        attackedPlayerId: null,
+        divinedPlayerId: null,
+        guardedPlayerId: null,
+        votedPlayer: { username: "player1", role: "WEREWOLF" },
+        attackedPlayer: null,
+        divinedPlayer: null,
+        guardedPlayer: null,
+      },
+    ]);
+    mockRecordFindMany.mockResolvedValue([
+      {
+        day: 1,
+        player: { username: "player1" },
+        voteTarget: { username: "player2" },
+      },
+      {
+        day: 1,
+        player: { username: "player3" },
+        voteTarget: { username: "player2" },
+      },
+    ]);
+
+    const caller = createPublicCaller();
+    const result = await caller.game.results({ villageId: VILLAGE_1 });
+
+    expect(result.showVoteTarget).toBe(true);
+    expect(result.results).toHaveLength(2);
+    expect(result.results[0].day).toBe(1);
+    expect(result.results[0].votedPlayer?.username).toBe("player2");
+    expect(result.results[0].hasNightPhase).toBe(true);
+    expect(result.results[1].day).toBe(2);
+    expect(result.results[1].hasNightPhase).toBe(false);
+    expect(result.voteDetails).toHaveLength(2);
+  });
+
+  test("処刑でゲーム終了した最終日は hasNightPhase が false になる", async () => {
+    // village.day === lastResult.day → 処刑で終了（夜なし）
+    mockVillageFindUnique.mockResolvedValue({
+      day: 2,
+      status: "ENDED",
+      showVoteTarget: false,
+    });
+    mockResultFindMany.mockResolvedValue([
+      {
+        day: 1,
+        votedPlayerId: PLAYER_2,
+        attackedPlayerId: PLAYER_FT,
+        divinedPlayerId: null,
+        guardedPlayerId: null,
+        votedPlayer: { username: "player2", role: "VILLAGER" },
+        attackedPlayer: { username: "fortune", role: "FORTUNE_TELLER" },
+        divinedPlayer: null,
+        guardedPlayer: null,
+      },
+      {
+        day: 2,
+        votedPlayerId: PLAYER_1,
+        attackedPlayerId: null,
+        divinedPlayerId: null,
+        guardedPlayerId: null,
+        votedPlayer: { username: "player1", role: "WEREWOLF" },
+        attackedPlayer: null,
+        divinedPlayer: null,
+        guardedPlayer: null,
+      },
+    ]);
+    mockRecordFindMany.mockResolvedValue([]);
+
+    const caller = createPublicCaller();
+    const result = await caller.game.results({ villageId: VILLAGE_1 });
+
+    expect(result.results[0].hasNightPhase).toBe(true);
+    expect(result.results[1].hasNightPhase).toBe(false);
+  });
+
+  test("夜フェーズ後にゲーム終了した場合は最終日も hasNightPhase が true", async () => {
+    // village.day (3) > lastResult.day (2) → 夜経由で終了
+    mockVillageFindUnique.mockResolvedValue({
+      day: 3,
+      status: "ENDED",
+      showVoteTarget: true,
+    });
+    mockResultFindMany.mockResolvedValue([
+      {
+        day: 2,
+        votedPlayerId: PLAYER_2,
+        attackedPlayerId: PLAYER_3,
+        divinedPlayerId: null,
+        guardedPlayerId: null,
+        votedPlayer: { username: "player2", role: "VILLAGER" },
+        attackedPlayer: { username: "player3", role: "WEREWOLF" },
+        divinedPlayer: null,
+        guardedPlayer: null,
+      },
+    ]);
+    mockRecordFindMany.mockResolvedValue([]);
+
+    const caller = createPublicCaller();
+    const result = await caller.game.results({ villageId: VILLAGE_1 });
+
+    expect(result.results[0].hasNightPhase).toBe(true);
+  });
+
+  test("IN_PLAY の村はエラーになる", async () => {
+    mockVillageFindUnique.mockResolvedValue({
+      day: 1,
+      status: "IN_PLAY",
+      showVoteTarget: true,
+    });
+
+    const caller = createPublicCaller();
+    const err = await caller.game
+      .results({ villageId: VILLAGE_1 })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+  });
+
+  test("存在しない村はエラーになる", async () => {
+    mockVillageFindUnique.mockResolvedValue(null);
+
+    const caller = createPublicCaller();
+    const err = await caller.game
+      .results({ villageId: NONEXISTENT })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("NOT_FOUND");
+  });
+
+  test("占い結果の isWerewolf が正しく判定される", async () => {
+    mockVillageFindUnique.mockResolvedValue({
+      day: 2,
+      status: "ENDED",
+      showVoteTarget: true,
+    });
+    mockResultFindMany.mockResolvedValue([
+      {
+        day: 1,
+        votedPlayerId: PLAYER_2,
+        attackedPlayerId: null,
+        divinedPlayerId: PLAYER_1,
+        guardedPlayerId: null,
+        votedPlayer: { username: "player2", role: "VILLAGER" },
+        attackedPlayer: null,
+        divinedPlayer: { username: "player1", role: "WEREWOLF" },
+        guardedPlayer: null,
+      },
+    ]);
+    mockRecordFindMany.mockResolvedValue([]);
+
+    const caller = createPublicCaller();
+    const result = await caller.game.results({ villageId: VILLAGE_1 });
+
+    expect(result.results[0].divinedPlayer?.isWerewolf).toBe(true);
   });
 });
