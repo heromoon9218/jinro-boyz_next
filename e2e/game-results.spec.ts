@@ -170,12 +170,12 @@ test.describe("プロフィール戦績", () => {
       timeout: 10000,
     });
 
-    // 全役職名が表示される
-    await expect(page.getByText("村人")).toBeVisible();
-    await expect(page.getByText("人狼")).toBeVisible();
-    await expect(page.getByText("占い師")).toBeVisible();
-    await expect(page.getByText("霊媒師")).toBeVisible();
-    await expect(page.getByText("騎士")).toBeVisible();
-    await expect(page.getByText("狂人")).toBeVisible();
+    // 全役職名がテーブルセルに表示される
+    await expect(page.getByRole("cell", { name: "村人" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "人狼", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "占い師" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "霊媒師" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "騎士" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "狂人" })).toBeVisible();
   });
 });
